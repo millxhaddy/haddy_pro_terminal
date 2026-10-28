@@ -51,6 +51,7 @@ from paper_autopilot import render_paper_autopilot_ui
 from tax_ledger import render_tax_ledger_ui
 from crisis_playbook import render_crisis_playbook_ui
 from ai_cyborg_sentinel import render_robot_mindset_hud, render_traffic_light_evaluator
+from ai_soul_core import render_ai_soul_hud
 from postmortem_desk import render_postmortem_dashboard
 from trade_desk import render_trade_desk_ui
 
@@ -153,6 +154,8 @@ with col_h1:
 with col_h2:
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown('<div style="text-align:right;"><span class="metric-pill">AES-256 SULIT & BERSIFAT PERIBADI</span></div>', unsafe_allow_html=True)
+
+render_ai_soul_hud()
 
 render_bento_metrics(kpis)
 
