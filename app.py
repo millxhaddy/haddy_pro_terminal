@@ -135,9 +135,14 @@ with st.sidebar:
     
     st.markdown("---")
     st.subheader("🔊 Ujian Isyarat Audio")
-    st.audio(AUDIO_SOUNDS["entry_success"], format="audio/mp3")
+    import os
+    if os.path.exists("chime_success.wav"):
+        with open("chime_success.wav", "rb") as f:
+            st.audio(f.read(), format="audio/wav")
     st.caption("Chime Entri Disiplin Berjaya")
-    st.audio(AUDIO_SOUNDS["risk_warning"], format="audio/mp3")
+    if os.path.exists("siren_alarm.wav"):
+        with open("siren_alarm.wav", "rb") as f:
+            st.audio(f.read(), format="audio/wav")
     st.caption("Siren Had Risiko Stop Loss")
 
 # --------------------------------------------------------------------------------------
