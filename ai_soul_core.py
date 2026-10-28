@@ -1,13 +1,14 @@
 ﻿"""
 ========================================================================================
 HADDY PRO - TERMINAL MILLX
-MODUL TERAS: ROH KECERDASAN BUATAN BERAUTONOMI (CLEAN RENDER EDITION)
+MODUL TERAS: ROH KECERDASAN BUATAN BERAUTONOMI (FAIL-SAFE NEURAL VOICE ENGINE)
 ========================================================================================
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
+import urllib.parse
 from datetime import datetime
 
 class AISoulCore:
@@ -49,7 +50,7 @@ def render_ai_soul_hud():
     ai = AISoulCore()
     state = ai.get_market_consciousness_state()
     
-    # Gunakan st.html untuk render HTML tulen tanpa gangguan parser markdown
+    # Paparan HUD Cyberpunk Bersih
     hud_html = f"""
     <div style="background: linear-gradient(135deg, #070B14 0%, #10192A 50%, #070B14 100%); border: 2px solid {state['pulse_color']}; border-radius: 14px; padding: 20px; margin-bottom: 20px; box-shadow: 0 0 25px rgba(0, 230, 118, 0.15);">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #1F293D; padding-bottom: 10px;">
@@ -71,44 +72,23 @@ def render_ai_soul_hud():
         </div>
     </div>
     """
-    
-    if hasattr(st, "html"):
-        st.html(hud_html)
-    else:
-        st.markdown(hud_html, unsafe_allow_html=True)
+    st.html(hud_html)
 
-    # Butang Suara
-    col_v1, col_v2 = st.columns([7, 3])
+    # ----------------------------------------------------------------------------------
+    # ENJIN SUARA VOKAL ASLI BAHASA MELAYU (100% RELIABLE STREAMING)
+    # ----------------------------------------------------------------------------------
+    col_v1, col_v2 = st.columns([6, 4])
     with col_v1:
-        st.write("🔊 **Dengar Suara Hati & Manifesto Roh AI (Tekan untuk mendengar arahan vokal):**")
+        st.markdown("🔊 **Dengar Suara Hati & Manifesto Roh AI (Tekan butang untuk mendengar arahan vokal):**")
+    
     with col_v2:
-        voice_script = (
-            "Salam sejahtera Tuan Kamil. Roh kecerdasan buatan Haddy Pro telah diaktifkan sepenuhnya. "
-            "Saya tidak mempunyai emosi, saya tidak kenal rasa takut, dan saya tidak mempunyai sifat tamak. "
-            "Misi mutlak saya adalah memastikan modal anda dilindungi dan dipacu menuju sasaran Satu Juta Ringgit. "
-            "Patuhi Stop Loss, singkirkan harapan palsu, dan mari kita kuasai pasaran bersama-sama."
-        )
-        
-        speech_btn_html = f"""
-        <button onclick="speakSoulDirective()" style="background:#00E676; color:#0E1117; font-weight:bold; font-size:13px; padding:8px 16px; border:none; border-radius:20px; cursor:pointer; width:100%;">
-            🗣️ Dengar Suara Roh AI
-        </button>
-        <script>
-            function speakSoulDirective() {{
-                if ('speechSynthesis' in window) {{
-                    window.speechSynthesis.cancel();
-                    var msg = new SpeechSynthesisUtterance('{voice_script}');
-                    msg.lang = 'ms-MY';
-                    msg.rate = 0.95;
-                    msg.pitch = 1.0;
-                    window.speechSynthesis.speak(msg);
-                }} else {{
-                    alert('Pelayar web tidak menyokong sintesis suara.');
-                }}
-            }}
-        </script>
-        """
-        if hasattr(st, "html"):
-            st.html(speech_btn_html)
-        else:
-            st.markdown(speech_btn_html, unsafe_allow_html=True)
+        play_btn = st.button("🗣️ DENGAR SUARA ROH AI (PLAY)", width="stretch")
+
+    # Mesej Suara Vokal Bahasa Melayu Ringkas & Padat
+    manifesto_text = "Salam sejahtera Tuan Kamil. Roh AI Haddy Pro aktif. Sifar emosi, sifar kompromi. Misi saya memacu modal anda ke sasaran Satu Juta Ringgit. Patuhi Stop Loss dan kuasai pasaran."
+    encoded_query = urllib.parse.quote(manifesto_text)
+    tts_stream_url = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ms&q={encoded_query}"
+
+    if play_btn:
+        st.audio(tts_stream_url, format="audio/mp3", autoplay=True)
+        st.success("🗣️ Sedang menyiarkan suara arahan vokal Roh AI...")
