@@ -1,13 +1,15 @@
 ﻿"""
 ========================================================================================
 HADDY PRO - TERMINAL MILLX
-MODUL TERAS: ROH KECERDASAN BUATAN BERAUTONOMI (FAIL-SAFE NEURAL VOICE ENGINE)
+MODUL TERAS: ROH KECERDASAN BUATAN BERAUTONOMI (OFFLINE-LOCAL RESILIENT AUDIO)
 ========================================================================================
 """
 
 import streamlit as st
 import pandas as pd
 import numpy as np
+import os
+import urllib.request
 import urllib.parse
 from datetime import datetime
 
@@ -46,6 +48,23 @@ class AISoulCore:
             "emotional_state": "Sedingin Ais (0.00% Bias / Sifar Tamak / Sifar Takut)"
         }
 
+def ensure_manifesto_audio():
+    """Memastikan fail audio wujud secara tempatan, muat turun jika belum ada."""
+    audio_path = "soul_manifesto.mp3"
+    if not os.path.exists(audio_path) or os.path.getsize(audio_path) < 100:
+        manifesto_text = "Salam sejahtera Tuan Kamil. Roh AI Haddy Pro aktif. Sifar emosi, sifar kompromi. Misi saya memacu modal anda ke sasaran Satu Juta Ringgit. Patuhi Stop Loss dan kuasai pasaran."
+        encoded_query = urllib.parse.quote(manifesto_text)
+        tts_url = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ms&q={encoded_query}"
+        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        try:
+            req = urllib.request.Request(tts_url, headers=headers)
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                with open(audio_path, "wb") as f:
+                    f.write(resp.read())
+        except Exception:
+            pass
+    return audio_path
+
 def render_ai_soul_hud():
     ai = AISoulCore()
     state = ai.get_market_consciousness_state()
@@ -75,20 +94,19 @@ def render_ai_soul_hud():
     st.html(hud_html)
 
     # ----------------------------------------------------------------------------------
-    # ENJIN SUARA VOKAL ASLI BAHASA MELAYU (100% RELIABLE STREAMING)
+    # ENJIN PEMAIN AUDIO BEBAS SEKATAN (DIRECT LOCAL MP3 PLAYBACK)
     # ----------------------------------------------------------------------------------
-    col_v1, col_v2 = st.columns([6, 4])
+    audio_file = ensure_manifesto_audio()
+    
+    col_v1, col_v2 = st.columns([5, 5])
     with col_v1:
-        st.markdown("🔊 **Dengar Suara Hati & Manifesto Roh AI (Tekan butang untuk mendengar arahan vokal):**")
+        st.markdown("🗣️ **Suara Roh AI (Arahan Vokal Bahasa Melayu):**")
+        st.caption("Tekan butang play pada pemain audio di sebelah untuk mendengar amanat disiplin.")
     
     with col_v2:
-        play_btn = st.button("🗣️ DENGAR SUARA ROH AI (PLAY)", width="stretch")
-
-    # Mesej Suara Vokal Bahasa Melayu Ringkas & Padat
-    manifesto_text = "Salam sejahtera Tuan Kamil. Roh AI Haddy Pro aktif. Sifar emosi, sifar kompromi. Misi saya memacu modal anda ke sasaran Satu Juta Ringgit. Patuhi Stop Loss dan kuasai pasaran."
-    encoded_query = urllib.parse.quote(manifesto_text)
-    tts_stream_url = f"https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=ms&q={encoded_query}"
-
-    if play_btn:
-        st.audio(tts_stream_url, format="audio/mp3", autoplay=True)
-        st.success("🗣️ Sedang menyiarkan suara arahan vokal Roh AI...")
+        if os.path.exists(audio_file):
+            with open(audio_file, "rb") as f:
+                audio_bytes = f.read()
+            st.audio(audio_bytes, format="audio/mp3")
+        else:
+            st.warning("Fail audio sedang diselaraskan...")
