@@ -51,6 +51,7 @@ from paper_autopilot import render_paper_autopilot_ui
 from tax_ledger import render_tax_ledger_ui
 from crisis_playbook import render_crisis_playbook_ui
 from ai_cyborg_sentinel import render_robot_mindset_hud, render_traffic_light_evaluator
+from elite_expansion_suite import render_elite_expansion_suite
 from ai_soul_core import render_ai_soul_hud
 from postmortem_desk import render_postmortem_dashboard
 from trade_desk import render_trade_desk_ui
@@ -169,7 +170,7 @@ st.markdown("---")
 # --------------------------------------------------------------------------------------
 # 6 TAB INTERAKTIF TERMINAL
 # --------------------------------------------------------------------------------------
-tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_diag = st.tabs([
+tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
     "🎯 1. Meja Keputusan Harian",
     "🏛️ 2. Portfolio & Aliran Tunai",
     "📊 3. Master 1,000 & CANSLIM",
@@ -190,7 +191,8 @@ tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cybo
     "📡 17. Radar Makro & Multimedia",
     "🧠 18. Bedah Siasat: Kebodohan dan Kecerdikan",
     "🚨 19. Protokol Krisis & SOP 15-Minit",
-    "🖥️ 20. Diagnostik Sistem Rangkaian"
+    "🚀 20. Enjin Tindakan Elit & Rebalance",
+    "🖥️ 21. Diagnostik Sistem Rangkaian"
 ])
 
 with tab_exec:
@@ -319,6 +321,9 @@ with tab_postmortem:
 
 with tab_crisis:
     render_crisis_playbook_ui(net_equity=kpis.get("active_portfolio_val", 55945.32))
+
+with tab_elite:
+    render_elite_expansion_suite(fx_rate=fx_rate)
 
 with tab_diag:
     render_system_diagnostics()
