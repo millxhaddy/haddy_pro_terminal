@@ -50,6 +50,7 @@ from voice_assistant import render_voice_assistant_ui
 from paper_autopilot import render_paper_autopilot_ui
 from tax_ledger import render_tax_ledger_ui
 from crisis_playbook import render_crisis_playbook_ui
+from ai_cyborg_sentinel import render_robot_mindset_hud, render_traffic_light_evaluator
 from postmortem_desk import render_postmortem_dashboard
 from trade_desk import render_trade_desk_ui
 
@@ -143,6 +144,8 @@ with st.sidebar:
 # --------------------------------------------------------------------------------------
 render_ticker_tape_marquee()
 
+render_robot_mindset_hud()
+
 col_h1, col_h2 = st.columns([7, 3])
 with col_h1:
     st.markdown('<div class="main-title">HADDY PRO - TERMINAL MILLX</div>', unsafe_allow_html=True)
@@ -158,13 +161,14 @@ st.markdown("---")
 # --------------------------------------------------------------------------------------
 # 6 TAB INTERAKTIF TERMINAL
 # --------------------------------------------------------------------------------------
-tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_diag = st.tabs([
+tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_diag = st.tabs([
     "🎯 1. Meja Keputusan Harian",
     "🏛️ 2. Portfolio & Aliran Tunai",
     "📊 3. Master 1,000 & CANSLIM",
     "🧮 4. Kalkulator 3M & Moomoo",
     "⚡ 5. Meja Beli/Jual & Watchlist",
     "🗺️ 6. Peta Haba Pasaran (Heatmap)",
+    "🚦 7. Lampu Isyarat & Amaran AI",
     "🎲 7. Enjin Kuantitatif & Risiko",
     "🛡️ 8. Trailing Stop Sentinel",
     "🧪 9. Enjin Backtest Lampau",
@@ -240,6 +244,9 @@ with tab_tradedesk:
 
 with tab_heatmap:
     render_market_heatmap_tab()
+
+with tab_cyborg:
+    render_traffic_light_evaluator()
 
 with tab_quant:
     st.header("🎲 Enjin Kuantitatif Institusi & Matriks Risiko")
