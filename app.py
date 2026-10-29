@@ -172,8 +172,9 @@ st.markdown("---")
 # --------------------------------------------------------------------------------------
 # 6 TAB INTERAKTIF TERMINAL
 # --------------------------------------------------------------------------------------
-tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
+tab_exec, tab_debt, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
     "🎯 1. Meja Keputusan Harian",
+    "🏛️ 2. Pengurusan Hutang & CCRIS",
     "🏛️ 2. Pengurusan Hutang & Profil Kredit CCRIS",
     "📊 3. Master 1,000 & CANSLIM",
     "🧮 4. Kalkulator 3M & Moomoo",
@@ -214,6 +215,9 @@ with tab_exec:
     with sub_us:
         st.dataframe(df_us.style.format({"Harga_Live": "${:.2f}", "SL": "${:.2f}", "TP": "${:.2f}", "RR": "{:.2f}x"}), width="stretch", hide_index=True)
     st.plotly_chart(render_rr_comparison_chart(df_bursa, df_us), width="stretch")
+
+with tab_debt:
+    render_debt_management_dashboard(vault, stock_portfolio_val=kpis.get("active_portfolio_val", 55945.32))
 
 with tab_port:
     st.header("🏛️ Pemantauan Posisi Langsung & Prestasi Aliran Tunai")
