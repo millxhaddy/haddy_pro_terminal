@@ -91,6 +91,35 @@ st.markdown("""
         font-size: 0.75rem;
         font-weight: 700;
     }
+
+    /* PENGEMASAN RESPANSIF MUDAH ALIH (MOBILE UI & PWA POLISH) */
+    @media (max-width: 768px) {
+        .main-title {
+            font-size: 1.5rem !important;
+        }
+        .sub-title {
+            font-size: 0.8rem !important;
+            margin-bottom: 10px !important;
+        }
+        .bento-card {
+            padding: 12px 14px !important;
+            margin-bottom: 10px !important;
+        }
+        .bento-value {
+            font-size: 1.25rem !important;
+        }
+        .bento-title {
+            font-size: 0.72rem !important;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 4px !important;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 6px 10px !important;
+            font-size: 0.78rem !important;
+        }
+    }
+
 </style>
 """, unsafe_allow_html=True)
 
