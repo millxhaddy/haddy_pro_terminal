@@ -1,11 +1,11 @@
 ﻿from personal_finance_suite import render_personal_finance_suite
-"""
-========================================================================================
-HADDY PRO - TERMINAL MILLX (MASTER INSTITUTIONAL EDITION - AES 600,000 LOCKED)
-========================================================================================
-"""
 
 import streamlit as st
+st.set_page_config(
+    page_title="Haddy Pro — Terminal Dagangan",
+    page_icon="haddy_logo.png" if os.path.exists("haddy_logo.png") else "⚡",
+    layout="wide"
+)
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -17,7 +17,7 @@ from security_vault import verify_vault_authentication
 
 st.set_page_config(
     page_title="Haddy Pro - Terminal Millx",
-    page_icon="⚡",
+    page_icon="haddy_logo.png" if os.path.exists("haddy_logo.png") else "⚡",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -112,7 +112,7 @@ with st.spinner("⚡ Menyegerakkan ekosistem Haddy Pro Vault secara langsung..."
 # SIDEBAR DENGAN BUTANG KUNCI VAULT (LOGOUT)
 # --------------------------------------------------------------------------------------
 with st.sidebar:
-    st.image("https://img.icons8.com/fluency/96/bullish.png", width=65)
+    st.image("haddy_logo.png", width=75) if os.path.exists("haddy_logo.png") else st.write("⚡")
     st.markdown('<div class="main-title" style="font-size:1.5rem;">HADDY PRO</div>', unsafe_allow_html=True)
     st.markdown('<span class="security-badge">🔒 AES-256 • 600K PBKDF2</span>', unsafe_allow_html=True)
     st.caption("Papan Keputusan Pelaburan Sulit & Berautonomi")
