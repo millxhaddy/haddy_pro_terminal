@@ -1,5 +1,5 @@
-import os
-﻿from personal_finance_suite import render_personal_finance_suite
+﻿import os
+from personal_finance_suite import render_personal_finance_suite
 
 import streamlit as st
 st.set_page_config(
