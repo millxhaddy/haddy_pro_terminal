@@ -32,6 +32,7 @@ from pipeline_cleaner import process_master_database
 from metrics_bento import extract_portfolio_kpis, render_bento_metrics
 from visuals_cashflow import get_cashflow_dataframe, render_cumulative_equity_curve, render_annual_flow_breakdown
 from portfolio_holdings import get_active_holdings, render_allocation_donut, render_holdings_cards
+from debt_management_ui import render_debt_management_dashboard
 from wealth_debt_ui import render_wealth_debt_dashboard
 from decision_tables import get_top10_bursa, get_top10_us, render_rr_comparison_chart
 from master_screener import build_institutional_screener_data, render_canslim_bubble_matrix
@@ -173,7 +174,7 @@ st.markdown("---")
 # --------------------------------------------------------------------------------------
 tab_exec, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
     "🎯 1. Meja Keputusan Harian",
-    "🏛️ 2. Liabiliti, Hutang & Kekayaan",
+    "🏛️ 2. Pengurusan Hutang & Profil Kredit CCRIS",
     "📊 3. Master 1,000 & CANSLIM",
     "🧮 4. Kalkulator 3M & Moomoo",
     "⚡ 5. Meja Beli/Jual & Watchlist",

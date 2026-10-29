@@ -14,6 +14,7 @@ DOC_ID = "1lyA9GEChz07i_9X_keem9TJJ2XHMMNaIEzFrqbQ3QAI"
 # Peta GID Rasmi bagi setiap tab Haddy Pro
 TAB_GIDS = {
     "Master Database": 8888888,
+    "Pengurusan_Hutang": 132297070,
     "Meja_Keputusan_Harian": 880088,
     "Radar_Makro_&_Berita_Live": 319157380,
     "Funding_Details": 87028702,
@@ -64,6 +65,7 @@ def load_all_terminal_data():
         "meja_keputusan": get_worksheet_data("Meja_Keputusan_Harian", header_row=6),
         "radar_makro": get_worksheet_data("Radar_Makro_&_Berita_Live", header_row=3),
         "funding": get_worksheet_data("Funding_Details", header_row=5),
+        "pengurusan_hutang": get_worksheet_data("Pengurusan_Hutang", header_row=7),
         "terminal_saham": get_worksheet_data("Terminal_Saham", header_row=8),
         "jurnal": get_worksheet_data("Jurnal Dagangan", header_row=0),
         "sasaran_sejuta": get_worksheet_data("Sasaran_Sejuta", header_row=6)
