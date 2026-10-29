@@ -3,3 +3,8 @@ st-gsheets-connection>=0.1.0
 pandas>=2.2.0
 plotly>=5.24.0
 numpy>=1.26.0
+cryptography
+openpyxl
+pytz
+edge-tts
+streamlit-autorefresh

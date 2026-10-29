@@ -1,5 +1,8 @@
 from dsr_engine import sync_queued_inputs, QUEUE_DIR
-﻿from gold_master_release import render_gold_master_dashboard
+"""
+HADDY PRO - Terminal Millx
+"""
+from gold_master_release import render_gold_master_dashboard
 from unusual_volume_anomaly import render_unusual_volume_scanner_ui
 from portfolio_opt_debt_strategy import render_markowitz_efficient_frontier_ui, render_debt_payoff_strategies_ui
 from fundamental_health_sankey import render_fundamental_health_and_sankey_ui
@@ -133,6 +136,19 @@ with st.sidebar:
         index=0
     )
     st.markdown("---")
+
+        # ----------------------------------------------------------------------------------
+    # ENJIN AUTO-REFRESH SETIAP 1 MINIT (60 SAAT)
+    # ----------------------------------------------------------------------------------
+    st.subheader("⏱️ PENYEGARAN AUTOMATIK")
+    enable_auto_refresh = st.checkbox("Auto-Refresh Setiap 1 Minit", value=True, help="Menyegerakkan data dan harga pasaran secara langsung setiap 60 saat tanpa log keluar.")
+    if enable_auto_refresh:
+        try:
+            from streamlit_autorefresh import st_autorefresh
+            refresh_count = st_autorefresh(interval=60 * 1000, key="haddy_terminal_autorefresh")
+            st.caption(f"🟢 Auto-sync aktif (60s) • Kitaran: #{refresh_count}")
+        except Exception:
+            pass
 
     if st.button("🔄 PAKSA SEGERAK (FORCE SYNC)", width="stretch"):
         st.cache_data.clear()
