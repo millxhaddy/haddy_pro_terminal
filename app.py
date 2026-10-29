@@ -1,3 +1,4 @@
+from dsr_engine import sync_queued_inputs, QUEUE_DIR
 ﻿from gold_master_release import render_gold_master_dashboard
 from unusual_volume_anomaly import render_unusual_volume_scanner_ui
 from portfolio_opt_debt_strategy import render_markowitz_efficient_frontier_ui, render_debt_payoff_strategies_ui
@@ -97,6 +98,30 @@ with st.sidebar:
     st.caption("Terminal Kuantitatif & Kewangan Holistik")
     st.markdown("---")
     
+        # LENCANA DSR (DYNAMIC SYSTEM RESILIENCE) AKTIF
+    try:
+        from dsr_engine import sync_queued_inputs, QUEUE_DIR
+        webhook_url = st.secrets.get("GSHEETS_WEBHOOK_URL", "") if hasattr(st, "secrets") else ""
+        synced_now = sync_queued_inputs(webhook_url)
+        pending_q = len([f for f in os.listdir(QUEUE_DIR) if f.startswith("pending_")]) if os.path.exists(QUEUE_DIR) else 0
+    except Exception:
+        synced_now = 0
+        pending_q = 0
+
+    st.markdown('''
+    <div style="background: linear-gradient(135deg, #0D281E 0%, #05140F 100%); border: 1.5px solid #00E676; border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; box-shadow: 0 0 15px rgba(0, 230, 118, 0.25);">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <span style="color:#00E676; font-weight:800; font-size:0.85rem; letter-spacing:0.5px;">⚡ DSR RESILIENCE: AKTIF</span>
+            <div style="height:8px; width:8px; background-color:#00E676; border-radius:50%; box-shadow:0 0 8px #00E676;"></div>
+        </div>
+        <small style="color:#A7F3D0; font-size:0.75rem;">Multi-Tier Failover (Cloud ⟷ Parquet)</small><br>
+        <small style="color:#8E9AAF; font-size:0.72rem;">Offline Queue: <b style="color:#FFFFFF;">''' + str(pending_q) + ''' pending</b> | 2-Way Live Sync</small>
+    </div>
+    ''', unsafe_allow_html=True)
+
+    if synced_now > 0:
+        st.toast(f"🔄 DSR: {synced_now} rekod luar talian berjaya dipulihkan ke Google Sheets!", icon="✅")
+
     st.subheader("🧭 PENGEMUDI MOD PAPARAN")
     mode_switch = st.radio(
         "PILIH SEGMEN KANDUNGAN:",
