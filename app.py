@@ -1,3 +1,4 @@
+from personal_finance_suite import render_personal_finance_suite
 ﻿"""
 ========================================================================================
 HADDY PRO - TERMINAL MILLX (MASTER INSTITUTIONAL EDITION - AES 600,000 LOCKED)
@@ -172,9 +173,10 @@ st.markdown("---")
 # --------------------------------------------------------------------------------------
 # 6 TAB INTERAKTIF TERMINAL
 # --------------------------------------------------------------------------------------
-tab_exec, tab_debt, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
+tab_exec, tab_debt, tab_pfs, tab_port, tab_screener, tab_calc, tab_tradedesk, tab_heatmap, tab_cyborg, tab_quant, tab_sentinel, tab_backtest, tab_voice, tab_paper, tab_tax, tab_mentor, tab_million, tab_zakat, tab_report, tab_macro, tab_postmortem, tab_crisis, tab_elite, tab_diag = st.tabs([
     "🎯 1. Meja Keputusan Harian",
     "🏛️ 2. Pengurusan Hutang & CCRIS",
+    "🏦 3. Perbankan, KWSP, PTPTN & Syariah",
     "🏛️ 2. Pengurusan Hutang & Profil Kredit CCRIS",
     "📊 3. Master 1,000 & CANSLIM",
     "🧮 4. Kalkulator 3M & Moomoo",
@@ -218,6 +220,9 @@ with tab_exec:
 
 with tab_debt:
     render_debt_management_dashboard(vault, stock_portfolio_val=kpis.get("active_portfolio_val", 55945.32))
+
+with tab_pfs:
+    render_personal_finance_suite(vault, net_equity=kpis.get("active_portfolio_val", 55945.32))
 
 with tab_port:
     st.header("🏛️ Pemantauan Posisi Langsung & Prestasi Aliran Tunai")
