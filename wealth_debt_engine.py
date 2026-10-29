@@ -5,23 +5,7 @@ MODUL ENJIN KEWANGAN HOLISTIK & PENGURUSAN LIABILITI (DATA SEBENAR GOOGLE SHEETS
 import pandas as pd
 import numpy as np
 
-DEBT_WEALTH_GIDS = {
-    "Pengurusan_Hutang": 132297070,
-    "11_Skor Kredit": 7004529,
-    "20_Akaun Bank": 116986296,
-    "15_Kad Kredit RHB": 1928302918,
-    "13_Sewa Beli Kereta": 144766196,
-    "16_PTPTN Ujrah": 721185977,
-    "17_Yuran Kediaman": 1163122475,
-    "21_Simpanan KWSP": 574881366,
-    "22_Zakat Harta": 1610247390,
-    "23_Fiqh Kewangan": 1677076971,
-    "14_Pinjaman CIMB": 82870378,
-    "12_Program AKPK": 1522726426
-}
-
 def get_holistic_balance_sheet(stock_portfolio_val=54278.00, cash_reserve=42497.80):
-    # Aset Sebenar Berdasarkan Google Sheets (26/10/2026)
     assets = [
         {"Kategori": "Pelaburan Saham (Bursa & US)", "Institusi": "Moomoo Universal (8702)", "Nilai_MYR": stock_portfolio_val, "Likuiditi": "Tinggi"},
         {"Kategori": "Baki Modal Trading Tunai", "Institusi": "Moomoo Funding Vault", "Nilai_MYR": cash_reserve, "Likuiditi": "Tinggi"},
@@ -35,14 +19,14 @@ def get_holistic_balance_sheet(stock_portfolio_val=54278.00, cash_reserve=42497.
     df_assets = pd.DataFrame(assets)
     total_assets = df_assets["Nilai_MYR"].sum()
 
-    # Liabiliti 6 Fasiliti CCRIS
     liabilities = [
         {"No": 1, "Fasiliti": "Pinjaman Perumahan", "Institusi": "Pembiayaan Bersama (BSN)", "Baki_Semasa": 408048.18, "Had_Asal": 388739.00, "Ansuran_Bulanan": 1400.00, "Kadar": "4.10%", "Status": "DMP AKPK", "Jenis": "Properties"},
         {"No": 2, "Fasiliti": "Sewa Beli Kenderaan", "Institusi": "Perodua Bezza (Maybank)", "Baki_Semasa": 13766.64, "Had_Asal": 32900.00, "Ansuran_Bulanan": 396.00, "Kadar": "6.69%", "Status": "Aktif", "Jenis": "Motor V"},
         {"No": 3, "Fasiliti": "Kad Kredit (Rewards)", "Institusi": "RHB Islamic (Card-i)", "Baki_Semasa": 4682.05, "Had_Asal": 19000.00, "Ansuran_Bulanan": 50.00, "Kadar": "7.00%", "Status": "DMP AKPK", "Jenis": "Clean"},
         {"No": 4, "Fasiliti": "Kad Kredit (Cashback)", "Institusi": "RHB Islamic (Cashback)", "Baki_Semasa": 13638.26, "Had_Asal": 19000.00, "Ansuran_Bulanan": 100.00, "Kadar": "7.00%", "Status": "DMP AKPK", "Jenis": "Clean"},
         {"No": 5, "Fasiliti": "Pinjaman Peribadi", "Institusi": "CIMB Cash Plus", "Baki_Semasa": 94013.13, "Had_Asal": 100000.00, "Ansuran_Bulanan": 950.00, "Kadar": "7.00%", "Status": "DMP AKPK", "Jenis": "Clean"},
-        {"No": 6, "Fasiliti": "Sewa Beli Kenderaan", "Institusi": "Perodua Alza (Hong Leong)", "Baki_Semasa": 61123.74, "Had_Asal": 63000.00, "Ansuran_Bulanan": 704.00, "Kadar": "2.29%", "Status": "Aktif", "Jenis": "Motor V"}
+        {"No": 6, "Fasiliti": "Sewa Beli Kenderaan", "Institusi": "Perodua Alza (Hong Leong)", "Baki_Semasa": 61123.74, "Had_Asal": 63000.00, "Ansuran_Bulanan": 704.00, "Kadar": "2.29%", "Status": "Aktif", "Jenis": "Motor V"},
+        {"No": 7, "Fasiliti": "Pinjaman Pendidikan", "Institusi": "PTPTN (Ujrah 1%)", "Baki_Semasa": 7229.22, "Had_Asal": 25000.00, "Ansuran_Bulanan": 150.00, "Kadar": "1.00%", "Status": "Aktif", "Jenis": "Pendidikan"}
     ]
     df_liabilities = pd.DataFrame(liabilities)
     total_liabilities = df_liabilities["Baki_Semasa"].sum()
@@ -59,19 +43,5 @@ def get_holistic_balance_sheet(stock_portfolio_val=54278.00, cash_reserve=42497.
         "total_monthly_commitment": total_monthly_commitment,
         "net_worth": net_worth,
         "solvency_ratio": solvency_ratio,
-        "dmp_monthly_savings": 981.00
+        "dmp_monthly_savings": 2163.29
     }
-
-def get_syariah_reminders():
-    return [
-        {
-            "Surah_Hadis": "Surah Al-Baqarah : Ayat 275",
-            "Maksud": "Allah menghalalkan jual beli dan mengharamkan riba.",
-            "Tafsiran": "Wajib mengelakkan pinjaman berasaskan riba. Utamakan pembiayaan patuh Syariah (AITAB, Murabahah)."
-        },
-        {
-            "Surah_Hadis": "HR At-Tirmidhi (Sahih)",
-            "Maksud": "Jiwa seorang mukmin tergantung dengan hutangnya sehinggalah hutang itu dilunaskan.",
-            "Tafsiran": "Amanah melunaskan hutang adalah kewajipan fardu yang mengikat rohani pelabur."
-        }
-    ]

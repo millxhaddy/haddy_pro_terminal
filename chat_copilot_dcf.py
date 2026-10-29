@@ -68,8 +68,8 @@ def process_ai_chat_response(prompt: str, fx_rate: float = 4.0773) -> str:
             "🏛️ **Ringkasan Liabiliti CCRIS Anda (Tab 2):**\n"
             "- **Jumlah Baki Liabiliti:** **RM 595,272.00**\n"
             "- **Komitmen Bulanan:** **RM 3,600.00** (DMP AKPK: RM 2,500 | Sewa Beli: RM 1,100)\n"
-            "- **Penjimatan DMP:** +RM 981.00 sebulan di bawah faedah konsesi 7.00% & 4.10%.\n"
-            "- **Status CCRIS:** 0 Bulan Tunggakan (100% Bersih) | i-SCORE: 688 (Gred Baik)."
+            "- **Penjimatan DMP:** +RM 2,163.29 sebulan (-46.4%) di bawah faedah konsesi 7.00% & 4.10%.\n"
+            "- **Status CCRIS:** 0 Bulan Tunggakan (100% Bersih) | i-SCORE: 558 (Gred 5 Sederhana) (Gred Baik)."
         )
     elif any(k in p for k in ["tenaga", "5347"]):
         return (
