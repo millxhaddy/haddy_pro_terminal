@@ -1,5 +1,5 @@
-from personal_finance_suite import render_personal_finance_suite
-﻿"""
+﻿from personal_finance_suite import render_personal_finance_suite
+"""
 ========================================================================================
 HADDY PRO - TERMINAL MILLX (MASTER INSTITUTIONAL EDITION - AES 600,000 LOCKED)
 ========================================================================================
