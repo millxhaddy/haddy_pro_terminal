@@ -6,6 +6,7 @@ MODUL KESELAMATAN VAULT: RECURSIVE SMART KEY DETECTOR & AES-256 (600,000 PBKDF2)
 """
 
 import hashlib
+import hmac
 import os
 import streamlit as st
 
@@ -13,7 +14,7 @@ PBKDF2_ITERATIONS = 600_000
 KEY_LENGTH = 32
 VAULT_SALT = b"HaddyProMillx2026SecureSaltKey16"
 
-def derive_aes_key(passphrase: str, salt: bytes = VAULT_SALT) -> bytes:
+def derive_password_verifier(passphrase: str, salt: bytes = VAULT_SALT) -> bytes:
     clean_pass = str(passphrase).strip().strip("'").strip('"')
     return hashlib.pbkdf2_hmac(
         hash_name='sha256',
@@ -50,17 +51,26 @@ def get_master_configured_key() -> str:
         import tomllib
         sec_path = os.path.join(".streamlit", "secrets.toml")
         if os.path.exists(sec_path):
-            with open(sec_path, "rb") as f:
-                cfg = tomllib.load(f)
-                found = find_key_recursively(cfg)
-                if found:
-                    return found
+            with open(sec_path, "r", encoding="utf-8-sig") as f:
+                cfg = tomllib.loads(f.read())
+            found = find_key_recursively(cfg)
+            if found:
+                return found
     except Exception:
         pass
         
-    return "millx@LIPIS84"
+    return ""
 
 def verify_vault_authentication():
+    configured_key = get_master_configured_key()
+    if not configured_key:
+        st.error(
+            "Vault dikunci: tetapkan VAULT_MASTER_KEY dalam Streamlit Secrets "
+            "sebelum membuka aplikasi."
+        )
+        st.stop()
+
+    st.session_state.pop("master_key", None)
     if "vault_authenticated" not in st.session_state:
         st.session_state["vault_authenticated"] = False
 
@@ -96,33 +106,34 @@ def verify_vault_authentication():
             <div class="lock-card">
                 <div class="shield-icon">🛡️</div>
                 <h2 style="color: #FFFFFF; margin-bottom: 5px;">HADDY PRO VAULT</h2>
-                <span class="cipher-badge">AES-256-GCM • 600,000 PBKDF2 LELARAN</span>
+                <span class="cipher-badge">PENGESAHAN KATA LALUAN • PBKDF2-HMAC-SHA256</span>
                 <p style="color: #8E9AAF; font-size: 0.88rem; margin-top: 15px;">
-                    Terminal ini berada dalam mod <b>SULIT & PERSENDIRIAN (PRIVATE VAULT)</b>.
+                    Ini ialah pintu kawalan akses aplikasi, bukan penyulitan data.
                 </p>
             </div>
             """, unsafe_allow_html=True)
 
             with st.form("vault_login_form"):
                 passphrase_input = st.text_input(
-                    "Kunci Rahsia Keselamatan (Master Vault Key):",
+                    "Kata laluan akses:",
                     type="password",
                     placeholder="Masukkan kata laluan..."
                 )
-                submitted = st.form_submit_button("🔓 Buka Kunci Vault & Dekripsi Data", width="stretch")
+                submitted = st.form_submit_button(
+                    "Sahkan dan buka aplikasi",
+                    width="stretch",
+                )
 
                 if submitted:
-                    configured_key = get_master_configured_key()
-                    with st.spinner("Memproses 600,000 pusingan kriptografi..."):
-                        derived_test = derive_aes_key(passphrase_input)
-                        derived_target = derive_aes_key(configured_key)
+                    with st.spinner("Mengesahkan kata laluan..."):
+                        derived_test = derive_password_verifier(passphrase_input)
+                        derived_target = derive_password_verifier(configured_key)
 
-                        if derived_test == derived_target:
+                        if hmac.compare_digest(derived_test, derived_target):
                             st.session_state["vault_authenticated"] = True
-                            st.session_state["master_key"] = passphrase_input.strip()
-                            st.success("✅ Kunci Disahkan Sah! Membuka Terminal...")
+                            st.success("Kata laluan disahkan.")
                             st.rerun()
                         else:
-                            st.error("⛔ AKSES DITOLAK: Kunci Kriptografi Tidak Sah!")
+                            st.error("Akses ditolak: kata laluan tidak sah.")
 
         st.stop()

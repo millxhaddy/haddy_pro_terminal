@@ -7,8 +7,10 @@ MODUL FASA 17 & 18: PENJANA PESANAN MOOMOO & ANALITIK DISIPLIN JURNAL DAGANGAN
 
 import streamlit as st
 import pandas as pd
+import math
 import plotly.graph_objects as go
 import plotly.express as px
+from pipeline_cleaner import clean_currency
 
 # --------------------------------------------------------------------------------------
 # FASA 17: PENJANA RENTETAN PESANAN BROKER MOOMOO (ORDER STRING GENERATOR)
@@ -133,149 +135,222 @@ def render_moomoo_order_generator():
 # --------------------------------------------------------------------------------------
 # FASA 18: ANALITIK DISIPLIN & PSIKOLOGI JURNAL DAGANGAN (MIND 60%)
 # --------------------------------------------------------------------------------------
-def get_journal_analytics_data() -> dict:
-    """
-    Menyusun data analitik audit disiplin berasaskan rekod rasmi tab Jurnal Dagangan (Baris 176 - 190).
-    """
-    # 1. Kategori Hasil & Emosi Dagangan
-    discipline_df = pd.DataFrame([
-        {"Kategori": "Selesai / Disiplin (TP)", "Bilangan": 92, "Untung_Bersih_MYR": 61691.40, "Peratus_Bilangan": 81.4, "Warna": "#00E676"},
-        {"Kategori": "Cut Loss Berdisiplin", "Bilangan": 20, "Untung_Bersih_MYR": -28544.10, "Peratus_Bilangan": 17.7, "Warna": "#FF5252"},
-        {"Kategori": "Pulang Modal (Break-even)", "Bilangan": 1, "Untung_Bersih_MYR": 0.00, "Peratus_Bilangan": 0.9, "Warna": "#29B6F6"},
-        {"Kategori": "FOMO / Emosi Tak Terkawal", "Bilangan": 0, "Untung_Bersih_MYR": 0.00, "Peratus_Bilangan": 0.0, "Warna": "#FFBB28"}
-    ])
+def get_realized_trade_pnls(vault_data: dict | None) -> list[float]:
+    """Return finite realized P&L values from the journal, skipping blanks and formula errors."""
+    journal = (vault_data or {}).get("jurnal_dagangan_df")
+    if not isinstance(journal, pd.DataFrame) or journal.empty:
+        return []
 
-    # 2. Metrik Prestasi Institusi
+    pnl_col = next(
+        (
+            column
+            for column in journal.columns
+            if "untung bersih" in str(column).strip().lower()
+            or str(column).strip().lower() in {"pnl", "p&l", "realized pnl"}
+        ),
+        None,
+    )
+    if pnl_col is None:
+        return []
+
+    values = []
+    for raw_value in journal[pnl_col]:
+        parsed_value = _parse_realized_pnl(raw_value)
+        if parsed_value is not None:
+            values.append(parsed_value)
+    return values
+
+
+def _parse_realized_pnl(value) -> float | None:
+    if pd.isna(value):
+        return None
+    text = str(value).strip()
+    if not text or text.upper() in {"-", "N/A", "NAN", "NONE"} or text.startswith("#"):
+        return None
+    if not any(character.isdigit() for character in text):
+        return None
+    parsed = float(clean_currency(value))
+    return parsed if math.isfinite(parsed) else None
+
+
+def get_journal_analytics_data(vault_data: dict | None = None) -> dict:
+    """Calculate journal performance only from realized P&L present in the source snapshot."""
+    empty_metrics = {
+        "profit_factor": None,
+        "win_rate_pct": None,
+        "avg_win": None,
+        "avg_loss": None,
+        "payoff_ratio": None,
+        "expectancy_myr": None,
+        "max_gain": None,
+        "max_drawdown": None,
+        "total_trades": 0,
+        "net_pnl_myr": None,
+    }
+    empty_discipline = pd.DataFrame(
+        columns=["Kategori", "Bilangan", "Untung_Bersih_MYR", "Peratus_Bilangan"]
+    )
+    empty_market = pd.DataFrame(
+        columns=["Pasaran", "Untung_MYR", "Rugi_MYR", "Bersih_MYR"]
+    )
+    journal = (vault_data or {}).get("jurnal_dagangan_df")
+    trade_pnls = get_realized_trade_pnls(vault_data)
+    if not trade_pnls:
+        return {
+            "discipline": empty_discipline,
+            "metrics": empty_metrics,
+            "market_pnl": empty_market,
+            "trade_pnls": [],
+        }
+
+    pnl = pd.Series(trade_pnls, dtype="float64")
+    winners = pnl[pnl > 0]
+    losers = pnl[pnl < 0]
+    gross_profit = float(winners.sum())
+    gross_loss = float(abs(losers.sum()))
+    categories = [
+        ("Untung", winners),
+        ("Rugi", losers),
+        ("Pulang modal", pnl[pnl == 0]),
+    ]
+    discipline = pd.DataFrame(
+        [
+            {
+                "Kategori": label,
+                "Bilangan": int(len(values)),
+                "Untung_Bersih_MYR": float(values.sum()),
+                "Peratus_Bilangan": float(len(values) / len(pnl) * 100),
+            }
+            for label, values in categories
+        ]
+    )
+    cumulative = pnl.cumsum()
+    max_drawdown = float((cumulative - cumulative.cummax().clip(lower=0)).min())
+    avg_win = float(winners.mean()) if not winners.empty else None
+    avg_loss = float(losers.mean()) if not losers.empty else None
     metrics = {
-        "profit_factor": 2.12,
-        "win_rate_pct": 77.0,
-        "avg_win": 722.12,
-        "avg_loss": -1187.09,
-        "payoff_ratio": 0.61,
-        "expectancy_myr": 282.83,
-        "max_gain": 9498.22,
-        "max_drawdown": -4607.19,
-        "total_trades": 113,
-        "net_pnl_myr": 33147.30
+        "profit_factor": gross_profit / gross_loss if gross_loss else None,
+        "win_rate_pct": float(len(winners) / len(pnl) * 100),
+        "avg_win": avg_win,
+        "avg_loss": avg_loss,
+        "payoff_ratio": avg_win / abs(avg_loss) if avg_win is not None and avg_loss else None,
+        "expectancy_myr": float(pnl.mean()),
+        "max_gain": float(pnl.max()),
+        "max_drawdown": max_drawdown,
+        "total_trades": int(len(pnl)),
+        "net_pnl_myr": float(pnl.sum()),
     }
 
-    # 3. Taburan P&L Mengikut Pasaran
-    market_pnl_df = pd.DataFrame([
-        {"Pasaran": "Bursa Malaysia", "Untung_MYR": 7820.50, "Rugi_MYR": -4120.30, "Bersih_MYR": 3700.20},
-        {"Pasaran": "Wall Street US", "Untung_MYR": 55003.90, "Rugi_MYR": -25556.90, "Bersih_MYR": 29447.00}
-    ])
+    market_col = next(
+        (
+            column
+            for column in journal.columns
+            if any(term in str(column).strip().lower() for term in ("pasaran", "market"))
+        ),
+        None,
+    )
+    pnl_col = next(
+        (
+            column
+            for column in journal.columns
+            if "untung bersih" in str(column).strip().lower()
+            or str(column).strip().lower() in {"pnl", "p&l", "realized pnl"}
+        ),
+        None,
+    )
+    market_pnl = empty_market
+    if market_col is not None and pnl_col is not None:
+        rows = []
+        for market, raw_value in zip(journal[market_col], journal[pnl_col]):
+            value = _parse_realized_pnl(raw_value)
+            if value is None:
+                continue
+            if value > 0:
+                profit, loss = value, 0.0
+            else:
+                profit, loss = 0.0, value
+            rows.append(
+                {
+                    "Pasaran": str(market).strip() or "Tidak dinyatakan",
+                    "Untung_MYR": profit,
+                    "Rugi_MYR": loss,
+                }
+            )
+        if rows:
+            market_pnl = pd.DataFrame(rows).groupby("Pasaran", as_index=False).agg(
+                Untung_MYR=("Untung_MYR", "sum"),
+                Rugi_MYR=("Rugi_MYR", "sum"),
+            )
+            market_pnl["Bersih_MYR"] = market_pnl["Untung_MYR"] + market_pnl["Rugi_MYR"]
 
     return {
-        "discipline": discipline_df,
+        "discipline": discipline,
         "metrics": metrics,
-        "market_pnl": market_pnl_df
+        "market_pnl": market_pnl,
+        "trade_pnls": trade_pnls,
     }
 
-def render_journal_analytics_dashboard():
-    """
-    Memaparkan visualisasi penuh analitik disiplin dagangan (Mind 60%).
-    """
-    data = get_journal_analytics_data()
-    m = data["metrics"]
-    df_disc = data["discipline"]
 
-    # 1. Baris Metrik Institusi DDNK
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Profit Factor", f"{m['profit_factor']:.2f}x", "Sasaran: > 1.50x")
-    with c2:
-        st.metric("Kadar Kemenangan (Win Rate)", f"{m['win_rate_pct']:.1f}%", f"{m['total_trades']} Jumlah Dagangan")
-    with c3:
-        st.metric("Jangkaan Positif (Expectancy)", f"+RM {m['expectancy_myr']:,.2f}", "Untung Jangkaan Per Trade")
-    with c4:
-        st.metric("Untung Bersih Realisasi", f"RM {m['net_pnl_myr']:,.2f}", "Pencapaian Tertinggi: RM 9,498")
+def render_journal_analytics_dashboard(vault_data: dict | None = None):
+    """Render realized trade analytics from the supplied Google Sheets snapshot."""
+    data = get_journal_analytics_data(vault_data)
+    metrics = data["metrics"]
+    if not metrics["total_trades"]:
+        st.info("Analitik jurnal belum tersedia: tiada nilai Untung Bersih yang sah dalam snapshot jurnal.")
+        return
 
-    st.markdown("---")
+    def format_metric(value, suffix=""):
+        return "Tidak tersedia" if value is None else f"{value:,.2f}{suffix}"
 
-    # 2. Visualisasi Berkembar: Carta Pai Disiplin vs Carta Bar P&L Pasaran
-    col_pie, col_bar = st.columns([5, 5])
+    columns = st.columns(4)
+    columns[0].metric("Profit factor", format_metric(metrics["profit_factor"], "x"))
+    columns[1].metric("Kadar menang", format_metric(metrics["win_rate_pct"], "%"))
+    columns[2].metric("Jangkaan per dagangan", f"RM {format_metric(metrics['expectancy_myr'])}")
+    columns[3].metric("Untung/rugi realisasi", f"RM {format_metric(metrics['net_pnl_myr'])}")
+    st.caption(f"Dikira daripada {metrics['total_trades']} rekod jurnal dengan P&L tersedia.")
 
-    with col_pie:
-        st.subheader("🧠 Audit Emosi & Disiplin Dagangan (Mind 60%)")
-        fig_pie = px.pie(
-            df_disc,
-            names="Kategori",
-            values="Bilangan",
-            color="Kategori",
-            color_discrete_map={
-                "Selesai / Disiplin (TP)": "#00E676",
-                "Cut Loss Berdisiplin": "#FF5252",
-                "Pulang Modal (Break-even)": "#29B6F6",
-                "FOMO / Emosi Tak Terkawal": "#FFBB28"
-            },
-            hole=0.55
-        )
-        fig_pie.update_traces(
-            textinfo="percent+label",
-            textfont=dict(color="#FFFFFF", size=11),
-            hovertemplate="<b>%{label}</b><br>Bilangan: <b>%{value} Dagangan</b><br>Peratus: <b>%{percent}</b><extra></extra>"
-        )
-        fig_pie.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#141824",
-            plot_bgcolor="#141824",
-            height=340,
-            margin=dict(l=20, r=20, t=30, b=20),
-            showlegend=False
-        )
-        st.plotly_chart(fig_pie, width="stretch")
-
-    with col_bar:
-        st.subheader("🌎 Taburan Untung Bersih: Bursa vs Wall Street")
-        df_m = data["market_pnl"]
-        fig_bar = go.Figure()
-        
-        fig_bar.add_trace(go.Bar(
-            x=df_m["Pasaran"],
-            y=df_m["Untung_MYR"],
-            name="Untung Kasar",
-            marker_color="#00E676",
-            hovertemplate="Untung Kasar: <b>RM %{y:,.2f}</b><extra></extra>"
-        ))
-        
-        fig_bar.add_trace(go.Bar(
-            x=df_m["Pasaran"],
-            y=df_m["Rugi_MYR"],
-            name="Rugi Kasar",
-            marker_color="#FF5252",
-            hovertemplate="Rugi Kasar: <b>RM %{y:,.2f}</b><extra></extra>"
-        ))
-        
-        fig_bar.add_trace(go.Bar(
-            x=df_m["Pasaran"],
-            y=df_m["Bersih_MYR"],
-            name="Untung Bersih",
-            marker_color="#29B6F6",
-            hovertemplate="Untung Bersih: <b>RM %{y:,.2f}</b><extra></extra>"
-        ))
-
-        fig_bar.update_layout(
-            template="plotly_dark",
-            paper_bgcolor="#141824",
-            plot_bgcolor="#141824",
-            barmode="group",
-            height=340,
-            margin=dict(l=20, r=20, t=30, b=20),
-            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1, font=dict(color="#8E9AAF", size=10)),
-            yaxis=dict(gridcolor="#222B3D", tickprefix="RM ", tickfont=dict(color="#8E9AAF", size=10)),
-            xaxis=dict(tickfont=dict(color="#FFFFFF", size=11))
-        )
-        st.plotly_chart(fig_bar, width="stretch")
-
-    # 3. Jadual Audit Disiplin Terperinci
-    st.subheader("📋 Jadual Audit Skor Psikologi & Tingkah Laku Pelabur")
-    st.dataframe(
-        df_disc.style.format({
-            "Untung_Bersih_MYR": "RM {:,.2f}",
-            "Peratus_Bilangan": "{:.1f}%"
-        }),
-        width="stretch",
-        hide_index=True
-    )
-    
-    st.info("💡 **Penemuan Audit DDNK:** Kadar kepatuhan disiplin anda berada pada tahap cemerlang (**99.1% Gabungan TP & Cut-Loss Berdisiplin**). Tiada sebarang insiden perdagangan balas dendam (*revenge trading*) atau FOMO dikesan.")
+    col_outcomes, col_markets = st.columns(2)
+    with col_outcomes:
+        st.subheader("Hasil dagangan dalam jurnal")
+        st.dataframe(data["discipline"], width="stretch", hide_index=True)
+        outcome_data = data["discipline"].loc[data["discipline"]["Bilangan"] > 0]
+        if not outcome_data.empty:
+            figure = px.pie(
+                outcome_data,
+                names="Kategori",
+                values="Bilangan",
+                hole=0.55,
+                color="Kategori",
+                color_discrete_map={
+                    "Untung": "#00E676",
+                    "Rugi": "#FF5252",
+                    "Pulang modal": "#29B6F6",
+                },
+            )
+            figure.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#141824",
+                plot_bgcolor="#141824",
+                height=340,
+                margin=dict(l=20, r=20, t=30, b=20),
+                showlegend=False,
+            )
+            st.plotly_chart(figure, width="stretch")
+    with col_markets:
+        st.subheader("Untung/rugi mengikut pasaran")
+        if data["market_pnl"].empty:
+            st.info("Data pasaran tidak tersedia dalam rekod jurnal yang boleh dikira.")
+        else:
+            st.dataframe(data["market_pnl"], width="stretch", hide_index=True)
+            figure = go.Figure()
+            figure.add_trace(go.Bar(x=data["market_pnl"]["Pasaran"], y=data["market_pnl"]["Untung_MYR"], name="Untung"))
+            figure.add_trace(go.Bar(x=data["market_pnl"]["Pasaran"], y=data["market_pnl"]["Rugi_MYR"], name="Rugi"))
+            figure.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#141824",
+                plot_bgcolor="#141824",
+                barmode="group",
+                height=340,
+                yaxis=dict(tickprefix="RM "),
+            )
+            st.plotly_chart(figure, width="stretch")

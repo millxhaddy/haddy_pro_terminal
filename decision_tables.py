@@ -1,88 +1,288 @@
-"""
-========================================================================================
-HADDY PRO - TERMINAL MILLX
-MODUL FASA 8 & 9: MEJA KEPUTUSAN HARIAN (TOP 10 BURSA & TOP 10 US)
-========================================================================================
-"""
+"""Google Sheets-backed decision tables and risk/reward comparison."""
 
-import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+
 from pipeline_cleaner import clean_currency, clean_ratio
 
-def get_top10_bursa(vault_data: dict) -> pd.DataFrame:
-    """
-    FASA 8: Menyusun senarai 10 Saham Terbaik Bursa Malaysia berasaskan data rasmi tab Meja_Keputusan_Harian.
-    """
-    bursa_stocks = [
-        {"No": 1, "Ticker": "KLSE:TENAGA", "Nama_Syarikat": "Tenaga Nasional Berhad", "Sektor": "Utiliti & Grid AI", "Harga_Live": 12.75, "Zon_Entri": "RM 12.50 - 13.00", "SL": 12.10, "TP": 14.38, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Monopoli Grid Kuasa AI & Pusat Data Johor", "Moomoo_Order": "Limit Order @ RM 12.60"},
-        {"No": 2, "Ticker": "KLSE:GAMUDA", "Nama_Syarikat": "Gamuda Berhad", "Sektor": "Pembinaan & Terowong", "Harga_Live": 4.55, "Zon_Entri": "RM 4.40 - 4.70", "SL": 4.30, "TP": 5.20, "RR": 2.60, "Status": "Boleh Beli", "Catalyst": "Buku Tempahan Rekod & Kontrak Infra Serantau", "Moomoo_Order": "Limit Order @ RM 4.48"},
-        {"No": 3, "Ticker": "KLSE:YTLPOWR", "Nama_Syarikat": "YTL Power International", "Sektor": "Kuasa & AI Cloud Hub", "Harga_Live": 4.98, "Zon_Entri": "RM 4.80 - 5.15", "SL": 4.70, "TP": 5.75, "RR": 2.75, "Status": "Boleh Beli", "Catalyst": "Kerjasama Superkomputer NVIDIA & Pusat Data Hijau", "Moomoo_Order": "Limit Order @ RM 4.90"},
-        {"No": 4, "Ticker": "KLSE:SUNCON", "Nama_Syarikat": "Sunway Construction Group", "Sektor": "Kontraktor Pusat Data", "Harga_Live": 3.95, "Zon_Entri": "RM 3.80 - 4.10", "SL": 3.75, "TP": 4.46, "RR": 2.55, "Status": "Boleh Beli", "Catalyst": "Penerima Kontrak Utama Pembinaan Pusat Data Multinasional", "Moomoo_Order": "Limit Order @ RM 3.88"},
-        {"No": 5, "Ticker": "KLSE:IHH", "Nama_Syarikat": "IHH Healthcare Berhad", "Sektor": "Penjagaan Kesihatan Swasta", "Harga_Live": 7.48, "Zon_Entri": "RM 7.30 - 7.65", "SL": 7.15, "TP": 8.30, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Permintaan Rawatan Perubatan Pelancongan & Pendapatan Kalis Inflasi", "Moomoo_Order": "Limit Order @ RM 7.38"},
-        {"No": 6, "Ticker": "KLSE:PMETAL", "Nama_Syarikat": "Press Metal Aluminium Holdings", "Sektor": "Peleburan Aluminium Hijau", "Harga_Live": 5.80, "Zon_Entri": "RM 5.60 - 5.95", "SL": 5.50, "TP": 6.60, "RR": 2.65, "Status": "Boleh Beli", "Catalyst": "Kenaikan Harga Komoditi Global & Peralihan Tenaga Bersih", "Moomoo_Order": "Limit Order @ RM 5.70"},
-        {"No": 7, "Ticker": "KLSE:INARI", "Nama_Syarikat": "Inari Amertron Berhad", "Sektor": "OSAT & Cip Frekuensi Radio", "Harga_Live": 3.42, "Zon_Entri": "RM 3.30 - 3.55", "SL": 3.25, "TP": 3.85, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Peningkatan Gelombang Telefon Pintar AI Generasi Baharu", "Moomoo_Order": "Limit Order @ RM 3.35"},
-        {"No": 8, "Ticker": "KLSE:SUNWAY", "Nama_Syarikat": "Sunway Berhad", "Sektor": "Konglomerat Bandar Pintar", "Harga_Live": 4.10, "Zon_Entri": "RM 3.95 - 4.25", "SL": 3.90, "TP": 4.66, "RR": 2.80, "Status": "Boleh Beli", "Catalyst": "Penyenaraian IPO Bahagian Kesihatan Sunway Healthcare", "Moomoo_Order": "Limit Order @ RM 4.02"},
-        {"No": 9, "Ticker": "KLSE:FRONTKN", "Nama_Syarikat": "Frontken Corporation Berhad", "Sektor": "Servis Kebuk Cip Semikonduktor", "Harga_Live": 4.25, "Zon_Entri": "RM 4.10 - 4.40", "SL": 4.05, "TP": 4.75, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Peningkatan Penggunaan Loji Cip Nod Canggih Taiwan", "Moomoo_Order": "Limit Order @ RM 4.18"},
-        {"No": 10, "Ticker": "KLSE:TM", "Nama_Syarikat": "Telekom Malaysia Berhad", "Sektor": "Kabel Dasar Laut & Internet Gentian", "Harga_Live": 6.85, "Zon_Entri": "RM 6.65 - 7.00", "SL": 6.55, "TP": 7.63, "RR": 2.60, "Status": "Boleh Beli", "Catalyst": "Pertumbuhan Trafik Awan & Sambungan Rangkaian Pusat Data", "Moomoo_Order": "Limit Order @ RM 6.72"}
+
+DECISION_COLUMNS = ["Ticker", "Harga_Rujukan", "SL", "TP", "RR", "Status"]
+TICKER_TERMS = ("ticker", "simbol", "kod", "kaunter", "saham", "stock", "symbol")
+INVALID_TICKERS = {
+    "", "nan", "none", "-", "n/a", "#n/a", "#ref!", "#error!", "#value!",
+    "ticker", "simbol", "kod", "kaunter", "jumlah", "total", "purata",
+}
+
+
+def _find_column(
+    dataframe: pd.DataFrame,
+    terms: tuple[str, ...],
+    exclude: tuple[str, ...] = (),
+    occurrence: int = 0,
+):
+    matches = [
+        column
+        for column in dataframe.columns
+        if any(
+            term in str(column).strip().lower().replace("_", " ")
+            for term in terms
+        )
+        and not any(
+            term in str(column).strip().lower().replace("_", " ")
+            for term in exclude
+        )
     ]
-    return pd.DataFrame(bursa_stocks)
+    if not matches:
+        return None
+    return matches[min(occurrence, len(matches) - 1)]
+
+
+def _extract_subtable_from_raw_rows(raw_rows: list, market: str = "bursa") -> pd.DataFrame:
+    """Fallback terus daripada _raw_rows_meja_keputusan jika top10_bursa/top10_us kosong."""
+    if not isinstance(raw_rows, list) or not raw_rows:
+        return pd.DataFrame()
+
+    header_rows = []
+    for idx, row in enumerate(raw_rows):
+        cells_lower = [str(c).strip().lower() for c in row]
+        ticker_positions = [
+            col_idx
+            for col_idx, cell in enumerate(cells_lower)
+            if any(
+                cell == term or cell.startswith(f"{term} ") or f" {term}" in cell
+                for term in TICKER_TERMS
+            )
+        ]
+        if ticker_positions:
+            header_rows.append((idx, ticker_positions, row))
+
+    if not header_rows:
+        return pd.DataFrame()
+
+    # Kes 1: Jadual Bursa & US bersebelahan pada baris pengepala yang sama (>= 2 lajur Ticker)
+    first_hdr_idx, ticker_pos, hdr_row = header_rows[0]
+    if len(ticker_pos) >= 2 and len(header_rows) == 1:
+        split_col = ticker_pos[1]
+        if market == "bursa":
+            sub_headers = [str(c).strip() or f"Col_{i}" for i, c in enumerate(hdr_row[:split_col])]
+            sub_data = [
+                r[:split_col] + [""] * max(0, split_col - len(r))
+                for r in raw_rows[first_hdr_idx + 1 : first_hdr_idx + 16]
+            ]
+        else:
+            start_col = max(0, split_col - 1)
+            sub_headers = [str(c).strip() or f"Col_{i}" for i, c in enumerate(hdr_row[start_col:])]
+            sub_data = [
+                r[start_col:] + [""] * max(0, len(sub_headers) - len(r[start_col:]))
+                for r in raw_rows[first_hdr_idx + 1 : first_hdr_idx + 16]
+            ]
+        return pd.DataFrame(sub_data, columns=sub_headers)
+
+    # Kes 2: Jadual Bursa & US bertindih secara menegak (Stacked)
+    target_hdr_idx = None
+    for idx, _, row in header_rows:
+        joined_lower = " ".join(str(c).lower() for c in row)
+        if market == "bursa" and ("rm" in joined_lower or "bursa" in joined_lower or "myr" in joined_lower):
+            target_hdr_idx = idx
+            break
+        if market == "us" and ("usd" in joined_lower or "us" in joined_lower or "$" in joined_lower):
+            target_hdr_idx = idx
+            break
+
+    if target_hdr_idx is None:
+        if market == "bursa":
+            target_hdr_idx = header_rows[0][0]
+        elif len(header_rows) > 1:
+            target_hdr_idx = header_rows[1][0]
+        else:
+            return pd.DataFrame()
+
+    raw_hdr = raw_rows[target_hdr_idx]
+    headers = []
+    seen = {}
+    for i, h in enumerate(raw_hdr):
+        clean_h = str(h).strip() or f"Col_{i+1}"
+        if clean_h in seen:
+            seen[clean_h] += 1
+            clean_h = f"{clean_h}_{seen[clean_h]}"
+        else:
+            seen[clean_h] = 1
+        headers.append(clean_h)
+
+    data_rows = []
+    for r in raw_rows[target_hdr_idx + 1 : target_hdr_idx + 16]:
+        if not any(str(c).strip() for c in r):
+            if data_rows:
+                break
+            continue
+        joined_r = " ".join(str(c).lower() for c in r)
+        if any(str(c).strip().lower() in {"ticker", "simbol"} for c in r) and ("usd" in joined_r or "rm" in joined_r):
+            break
+        padded = list(r[: len(headers)]) + [""] * max(0, len(headers) - len(r))
+        data_rows.append(padded)
+
+    return pd.DataFrame(data_rows, columns=headers) if data_rows else pd.DataFrame()
+
+
+def _parse_candidate_dataframe(source: pd.DataFrame, ticker_index: int = 0) -> pd.DataFrame:
+    if source is None or not isinstance(source, pd.DataFrame) or source.empty:
+        return pd.DataFrame(columns=DECISION_COLUMNS)
+
+    ticker_columns = [
+        column
+        for column in source.columns
+        if any(term in str(column).lower() for term in TICKER_TERMS)
+    ]
+    if not ticker_columns:
+        return pd.DataFrame(columns=DECISION_COLUMNS)
+
+    occ = min(ticker_index, len(ticker_columns) - 1)
+    ticker_col = ticker_columns[occ]
+    price_col = _find_column(
+        source,
+        ("harga rujukan", "harga semasa", "harga live", "harga", "price", "entry"),
+        ("stop", "sasaran", "target", "sl", "tp"),
+        occurrence=occ,
+    )
+    stop_col = _find_column(
+        source,
+        ("stop loss", "stop-loss", " sl", "henti rugi", "sl", "cut loss"),
+        occurrence=occ,
+    )
+    target_col = _find_column(
+        source,
+        ("sasaran", "take profit", "target", " tp", "tp"),
+        occurrence=occ,
+    )
+    rr_col = _find_column(
+        source,
+        ("nisbah r:r", "r:r", "risk reward", "rr"),
+        occurrence=occ,
+    )
+    status_col = _find_column(
+        source,
+        ("keputusan akhir", "keputusan", "status", "tindakan", "signal", "isyarat"),
+        occurrence=occ,
+    )
+
+    normalized = pd.DataFrame()
+    normalized["Ticker"] = source[ticker_col].astype(str).str.strip()
+    normalized["Harga_Rujukan"] = (
+        source[price_col].map(clean_currency) if price_col else pd.NA
+    )
+    normalized["SL"] = source[stop_col].map(clean_currency) if stop_col else pd.NA
+    normalized["TP"] = source[target_col].map(clean_currency) if target_col else pd.NA
+    normalized["RR"] = source[rr_col].map(clean_ratio) if rr_col else pd.NA
+    normalized["Status"] = (
+        source[status_col].astype(str).str.strip() if status_col else "Tidak dinyatakan"
+    )
+
+    normalized = normalized[
+        ~normalized["Ticker"].str.lower().isin(INVALID_TICKERS)
+        & ~normalized["Ticker"].str.lower().str.startswith(("jadual", "meja", "nota", "top "))
+    ]
+    return normalized[DECISION_COLUMNS].head(10).reset_index(drop=True)
+
+
+def _normalize_decision_table(
+    vault_data: dict,
+    keys: tuple[str, ...],
+    ticker_index: int = 0,
+    market: str = "bursa",
+):
+    if not isinstance(vault_data, dict):
+        return pd.DataFrame(columns=DECISION_COLUMNS)
+
+    candidates = []
+    for key in keys:
+        df_cand = vault_data.get(key)
+        if isinstance(df_cand, pd.DataFrame) and not df_cand.empty:
+            candidates.append((df_cand, 0))
+
+    raw_rows = vault_data.get("_raw_rows_meja_keputusan", [])
+    raw_extracted = _extract_subtable_from_raw_rows(raw_rows, market=market)
+    if not raw_extracted.empty:
+        candidates.append((raw_extracted, 0))
+
+    for fallback_key in ("meja_keputusan", "01_Meja Keputusan", "top10_bursa"):
+        fb_df = vault_data.get(fallback_key)
+        if isinstance(fb_df, pd.DataFrame) and not fb_df.empty:
+            candidates.append((fb_df, ticker_index))
+
+    for cand_df, idx_to_use in candidates:
+        result = _parse_candidate_dataframe(cand_df, ticker_index=idx_to_use)
+        if not result.empty:
+            return result
+
+    return pd.DataFrame(columns=DECISION_COLUMNS)
+
+
+def get_top10_bursa(vault_data: dict) -> pd.DataFrame:
+    """Return Bursa decisions only when an actual decision table is present in Sheets."""
+    return _normalize_decision_table(
+        vault_data,
+        ("top10_bursa", "bursa_top10"),
+        ticker_index=0,
+        market="bursa",
+    )
+
 
 def get_top10_us(vault_data: dict) -> pd.DataFrame:
-    """
-    FASA 9: Menyusun senarai 10 Saham Terbaik Wall Street US berasaskan data rasmi tab Meja_Keputusan_Harian.
-    """
-    us_stocks = [
-        {"No": 1, "Ticker": "NASDAQ:NVDA", "Nama_Syarikat": "NVIDIA Corporation", "Sektor": "Pemproses Grafik & Superkomputer AI", "Harga_Live": 141.20, "Zon_Entri": "$136.00 - 143.00", "SL": 134.00, "TP": 161.36, "RR": 2.80, "Status": "Boleh Beli", "Catalyst": "Permintaan Cip Blackwell AI Melebihi Bekalan", "Moomoo_Order": "Limit Order @ $138.50"},
-        {"No": 2, "Ticker": "NASDAQ:MSFT", "Nama_Syarikat": "Microsoft Corporation", "Sektor": "Perisian Perusahaan & Infrastruktur Awan", "Harga_Live": 428.50, "Zon_Entri": "$420.00 - 435.00", "SL": 415.00, "TP": 464.28, "RR": 2.65, "Status": "Boleh Beli", "Catalyst": "Peningkatan Pendapatan Langganan Copilot & Awan Azure", "Moomoo_Order": "Limit Order @ $424.00"},
-        {"No": 3, "Ticker": "NASDAQ:AMZN", "Nama_Syarikat": "Amazon.com Inc", "Sektor": "Pengkomputeran Awan AWS & E-Dagang", "Harga_Live": 186.40, "Zon_Entri": "$180.00 - 190.00", "SL": 178.00, "TP": 207.40, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Pengembangan Margin AWS & Automasi Pusat Logistik", "Moomoo_Order": "Limit Order @ $183.50"},
-        {"No": 4, "Ticker": "NASDAQ:GOOGL", "Nama_Syarikat": "Alphabet Inc", "Sektor": "Enjin Carian & Model AI Gemini", "Harga_Live": 168.30, "Zon_Entri": "$162.00 - 171.00", "SL": 160.00, "TP": 190.71, "RR": 2.70, "Status": "Boleh Beli", "Catalyst": "Integrasi Carian AI Overviews & Pengewangan YouTube", "Moomoo_Order": "Limit Order @ $165.00"},
-        {"No": 5, "Ticker": "NASDAQ:AVGO", "Nama_Syarikat": "Broadcom Inc", "Sektor": "Cip Rangkaian Silikon Tersuai (ASIC)", "Harga_Live": 175.60, "Zon_Entri": "$170.00 - 180.00", "SL": 168.00, "TP": 195.00, "RR": 2.55, "Status": "Boleh Beli", "Catalyst": "Kontrak Reka Bentuk Cip AI Bersama Syarikat Awan Terkemuka", "Moomoo_Order": "Limit Order @ $172.00"},
-        {"No": 6, "Ticker": "NASDAQ:META", "Nama_Syarikat": "Meta Platforms Inc", "Sektor": "Media Sosial & Model Sumber Terbuka Llama", "Harga_Live": 580.20, "Zon_Entri": "$565.00 - 590.00", "SL": 558.00, "TP": 644.58, "RR": 2.90, "Status": "Boleh Beli", "Catalyst": "Keberkesanan Iklan Dikuasakan AI & Penglibatan Tinggi Pengguna", "Moomoo_Order": "Limit Order @ $572.00"},
-        {"No": 7, "Ticker": "NYSE:ORCL", "Nama_Syarikat": "Oracle Corporation", "Sektor": "Pangkalan Data & Pusat Awan Generasi 2", "Harga_Live": 172.40, "Zon_Entri": "$166.00 - 175.00", "SL": 164.00, "TP": 193.40, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Lonjakan Kontrak RPO Awan Melebihi Puluhan Bilion Dolar", "Moomoo_Order": "Limit Order @ $169.00"},
-        {"No": 8, "Ticker": "NYSE:NOW", "Nama_Syarikat": "ServiceNow Inc", "Sektor": "Platform Aliran Kerja Digital AI", "Harga_Live": 910.00, "Zon_Entri": "$885.00 - 925.00", "SL": 875.00, "TP": 1001.00, "RR": 2.60, "Status": "Boleh Beli", "Catalyst": "Penggunaan Meluas Automasi Ejen AI di Syarikat Fortune 500", "Moomoo_Order": "Limit Order @ $895.00"},
-        {"No": 9, "Ticker": "NASDAQ:MRVL", "Nama_Syarikat": "Marvell Technology Inc", "Sektor": "Pemprosesan Data & Rangkaian Optik", "Harga_Live": 82.50, "Zon_Entri": "$79.00 - 85.00", "SL": 78.00, "TP": 94.88, "RR": 2.75, "Status": "Boleh Beli", "Catalyst": "Permintaan Suis Optik Berkelajuan Tinggi Bagi Kluster GPU", "Moomoo_Order": "Limit Order @ $81.00"},
-        {"No": 10, "Ticker": "NYSE:UBER", "Nama_Syarikat": "Uber Technologies Inc", "Sektor": "Mobiliti Bandar & Logistik Pintar", "Harga_Live": 78.40, "Zon_Entri": "$75.00 - 80.00", "SL": 74.00, "TP": 89.40, "RR": 2.50, "Status": "Boleh Beli", "Catalyst": "Aliran Tunai Bebas Rekod & Perkongsian Kenderaan Autonomi", "Moomoo_Order": "Limit Order @ $76.80"}
-    ]
-    return pd.DataFrame(us_stocks)
+    """Return US decisions only when an actual decision table is present in Sheets."""
+    return _normalize_decision_table(
+        vault_data,
+        ("top10_us", "us_top10"),
+        ticker_index=1,
+        market="us",
+    )
+
 
 def render_rr_comparison_chart(df_bursa: pd.DataFrame, df_us: pd.DataFrame):
-    """
-    Menjana Carta Bar Mendatar (Plotly) membandingkan Nisbah R:R antara Top 10 Bursa dan Top 10 US.
-    """
+    """Plot risk/reward values supplied by the decision-sheet snapshot."""
     fig = go.Figure()
+    for dataframe, name, color in (
+        (df_bursa, "Bursa Malaysia", "#00E676"),
+        (df_us, "Wall Street US", "#29B6F6"),
+    ):
+        if dataframe is None or dataframe.empty or not {"Ticker", "RR"}.issubset(dataframe.columns):
+            continue
+        values = pd.to_numeric(dataframe["RR"], errors="coerce")
+        valid = values.notna()
+        if valid.any():
+            fig.add_trace(
+                go.Bar(
+                    y=dataframe.loc[valid, "Ticker"].astype(str),
+                    x=values[valid],
+                    name=name,
+                    orientation="h",
+                    marker_color=color,
+                )
+            )
 
-    fig.add_trace(go.Bar(
-        y=df_bursa["Ticker"].str.replace("KLSE:", ""),
-        x=df_bursa["RR"],
-        name="🇲🇾 Bursa Malaysia",
-        orientation="h",
-        marker=dict(color="#00E676", line=dict(color="#00B050", width=1.5)),
-        hovertemplate="<b>%{y}</b><br>Nisbah R:R: <b>%{x:.2f}x</b><extra></extra>"
-    ))
-
-    fig.add_trace(go.Bar(
-        y=df_us["Ticker"].str.replace("NASDAQ:", "").str.replace("NYSE:", ""),
-        x=df_us["RR"],
-        name="🇺🇸 Wall Street US",
-        orientation="h",
-        marker=dict(color="#29B6F6", line=dict(color="#0288D1", width=1.5)),
-        hovertemplate="<b>%{y}</b><br>Nisbah R:R: <b>%{x:.2f}x</b><extra></extra>"
-    ))
-
-    # Garisan Rujukan Had Minimum DDNK (2.50x)
-    fig.add_vline(x=2.50, line_dash="dash", line_color="#FFBB28", annotation_text="Piawaian Min: 2.50x", annotation_position="top right")
-
+    if not fig.data:
+        fig.add_annotation(
+            text="Tiada nisbah risiko/ganjaran sah daripada tab keputusan Google Sheets.",
+            x=0.5,
+            y=0.5,
+            xref="paper",
+            yref="paper",
+            showarrow=False,
+        )
+    else:
+        fig.add_vline(
+            x=2.5,
+            line_dash="dash",
+            line_color="#FFBB28",
+            annotation_text="Rujukan 2.50x",
+            annotation_position="top right",
+        )
     fig.update_layout(
-        title=dict(text="⚖️ Penanda Aras Nisbah Risiko-Ganjaran (R:R Ratio >= 2.50x)", font=dict(color="#FFFFFF", size=14)),
+        title="Nisbah Risiko/Ganjaran daripada snapshot Sheets",
         template="plotly_dark",
         paper_bgcolor="#141824",
         plot_bgcolor="#141824",
         height=420,
         barmode="group",
-        margin=dict(l=30, r=30, t=50, b=30),
-        xaxis=dict(title="Nisbah Potensi R:R", gridcolor="#222B3D", tickfont=dict(color="#8E9AAF")),
-        yaxis=dict(gridcolor="#222B3D", tickfont=dict(color="#FFFFFF", size=11)),
-        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+        xaxis_title="Nisbah R:R",
     )
     return fig

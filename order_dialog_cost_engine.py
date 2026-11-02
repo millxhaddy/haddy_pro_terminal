@@ -57,6 +57,9 @@ def calculate_us_transaction_cost(shares: int, price_usd: float, dividend_yield_
     """
     Mengira kos transaksi Wall Street US (Moomoo) & Cukai Dividen 30% WHT.
     """
+    if shares <= 0 or price_usd <= 0 or fx_rate <= 0 or dividend_yield_pct < 0:
+        return {}
+
     gross_usd = shares * price_usd
     gross_myr = gross_usd * fx_rate
     
@@ -86,9 +89,9 @@ def calculate_us_transaction_cost(shares: int, price_usd: float, dividend_yield_
     }
 
 # FUNGSI MODAL DIALOG POP-UP INTERAKTIF
-@st.dialog("🛒 Tetingkap Pesanan Pantas & Kiraan Kos Terperinci")
-def open_quick_order_modal(default_ticker: str = "KLSE:TENAGA", default_price: float = 12.75, fx_rate: float = 4.0773):
-    st.caption("Kira kos bersih duti setem, yuran penjelasan & cukai dividen secara automatik sebelum membuat tempahan.")
+@st.dialog("🛒 Draf Pesanan & Anggaran Kos")
+def open_quick_order_modal(default_ticker: str = "", default_price: float = 0.0, fx_rate: float = 4.0773):
+    st.caption("Kalkulator anggaran sahaja. Ia tidak mengesahkan atau menghantar pesanan kepada broker.")
 
     mkt = st.radio("Pilih Pasaran:", ["🇲🇾 Bursa Malaysia (MYR)", "🇺🇸 Wall Street US (USD)"], horizontal=True)
     is_bursa = "Bursa" in mkt
@@ -96,18 +99,38 @@ def open_quick_order_modal(default_ticker: str = "KLSE:TENAGA", default_price: f
     c1, c2 = st.columns(2)
     with c1:
         sym = st.text_input("Kod Saham (Ticker):", value=default_ticker).upper().strip()
-        px = st.number_input(f"Harga Had ({'RM' if is_bursa else '$'}):", value=float(default_price), step=0.01, format="%.2f")
+        px = st.number_input(
+            f"Harga Had ({'RM' if is_bursa else '$'}):",
+            min_value=0.0,
+            value=max(0.0, float(default_price)),
+            step=0.01,
+            format="%.2f",
+        )
     with c2:
         default_qty = 500 if is_bursa else 25
         qty = st.number_input(f"Kuantiti ({'Unit (Lot x100)' if is_bursa else 'Unit Saham'}):", value=int(default_qty), step=100 if is_bursa else 5)
         sl_val = st.number_input("Paras Stop Loss:", value=float(px * 0.95), step=0.01, format="%.2f")
 
+    side = st.selectbox("Arah draf", ["BUY", "SELL"])
+    dividend_yield_pct = 0.0
+    if not is_bursa:
+        dividend_yield_pct = st.number_input(
+            "Andaian hasil dividen tahunan (%)",
+            min_value=0.0,
+            max_value=50.0,
+            value=0.0,
+            step=0.1,
+        )
+
     st.markdown("---")
 
-    if is_bursa:
+    if not sym or px <= 0 or qty <= 0:
+        st.info("Masukkan ticker, harga had dan kuantiti yang sah untuk melihat anggaran.")
+    elif is_bursa:
         res = calculate_bursa_transaction_cost(qty, px)
         if res:
-            st.markdown("#### 📋 Pecahan Yuran Transaksi Rasmi Bursa Malaysia:")
+            st.markdown("#### Anggaran kos Bursa Malaysia")
+            st.caption("Kadar contoh; sahkan kadar broker dan peraturan semasa sebelum membuat keputusan.")
             b_c1, b_c2, b_c3 = st.columns(3)
             b_c1.metric("Nilai Kontrak", f"RM {res['contract_val']:,.2f}")
             b_c2.metric("Jumlah Kos Masuk-Keluar", f"RM {res['total_round_trip']:,.2f}", "Broker + Duti Setem + SST")
@@ -119,9 +142,15 @@ def open_quick_order_modal(default_ticker: str = "KLSE:TENAGA", default_price: f
                 st.write(f"- Yuran Penjelasan (0.03%): **RM {res['clearing_fee']:,.2f}**")
                 st.write(f"- Duti Setem (RM 1.50/k, max RM1k): **RM {res['stamp_duty']:,.2f}**")
     else:
-        res_u = calculate_us_transaction_cost(qty, px, fx_rate=fx_rate)
+        res_u = calculate_us_transaction_cost(
+            qty,
+            px,
+            dividend_yield_pct=dividend_yield_pct,
+            fx_rate=fx_rate,
+        )
         if res_u:
-            st.markdown("#### 📋 Pecahan Yuran Transaksi US & Cukai Dividen 30% WHT:")
+            st.markdown("#### Anggaran kos transaksi US")
+            st.caption("Anggaran yuran dan cukai; kadar broker, FX dan layanan cukai sebenar mungkin berbeza.")
             u_c1, u_c2, u_c3 = st.columns(3)
             u_c1.metric("Nilai Saham (USD)", f"${res_u['gross_usd']:,.2f}", f"~RM {res_u['gross_myr']:,.2f}")
             u_c2.metric("Yuran Transaksi Moomoo", f"${res_u['total_fee_usd']:.2f}", f"~RM {res_u['total_fee_myr']:.2f}")
@@ -133,5 +162,10 @@ def open_quick_order_modal(default_ticker: str = "KLSE:TENAGA", default_price: f
                 st.write(f"- Dividen Bersih Masuk Akaun: **${res_u['div_net_usd']:,.2f} (RM {res_u['div_net_myr']:,.2f})**")
 
     st.markdown("---")
-    if st.button("🚀 Sahkan & Salin Pesanan ke Broker", width="stretch"):
-        st.success(f"Pesanan {qty:,} unit {sym} disahkan! Sedia disalin ke aplikasi Moomoo.")
+    if st.button("Bina draf pesanan", width="stretch", disabled=not sym or px <= 0 or qty <= 0):
+        st.code(
+            f"{side} {sym} · Kuantiti: {qty:,} · Had: {px:.2f} · "
+            f"Stop: {sl_val:.2f}",
+            language=None,
+        )
+        st.info("Draf dipaparkan untuk semakan sahaja; tiada pesanan dihantar kepada broker.")

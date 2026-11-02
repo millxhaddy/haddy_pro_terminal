@@ -1,10 +1,12 @@
-streamlit>=1.40.0
-st-gsheets-connection>=0.1.0
-pandas>=2.2.0
-plotly>=5.24.0
-numpy>=1.26.0
-cryptography
-openpyxl
-pytz
-edge-tts
-streamlit-autorefresh
+# Exact direct dependency versions verified in the project environment.
+streamlit==1.66.1
+st-gsheets-connection==0.1.0
+pandas==3.1.0
+plotly==7.1.0
+numpy==2.5.4
+cryptography==50.0.2
+openpyxl==3.1.5
+pytz==2026.6
+edge-tts==7.3.1
+streamlit-autorefresh==1.0.1
+moomoo-api==10.11.7108

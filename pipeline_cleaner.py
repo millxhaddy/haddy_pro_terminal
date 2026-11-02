@@ -25,7 +25,7 @@ def clean_currency(val):
     try:
         num = float(clean_str)
         return -num if is_negative else num
-    except:
+    except (TypeError, ValueError):
         return 0.0
 
 def clean_percentage(val):
@@ -42,7 +42,7 @@ def clean_percentage(val):
         if "%" in str(val):
             num = num / 100.0
         return -num if is_negative else num
-    except:
+    except (TypeError, ValueError):
         return 0.0
 
 def clean_ratio(val):
@@ -51,8 +51,12 @@ def clean_ratio(val):
         return 0.0
     val_str = str(val).lower().replace("x", "").strip()
     try:
-        return float(re.sub(r"[^\d.]", "", val_str))
-    except:
+        parts = re.findall(r"-?\d+(?:\.\d+)?", val_str)
+        if ":" in val_str and len(parts) >= 2:
+            risk, reward = float(parts[0]), float(parts[1])
+            return reward / risk if risk > 0 else 0.0
+        return float(parts[0]) if parts else 0.0
+    except (TypeError, ValueError):
         return 0.0
 
 def process_master_database(df: pd.DataFrame) -> pd.DataFrame:

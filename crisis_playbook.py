@@ -6,15 +6,13 @@ MODUL 20: PROTOKOL KRISIS 'BLACK SWAN', PEMUTUS LITAR & MANUAL OPERASI HARIAN 15
 """
 
 import streamlit as st
-import pandas as pd
-from datetime import datetime
 from risk_calculator_audio import play_audio_trigger
 
 def initialize_crisis_state():
     if "circuit_breaker_active" not in st.session_state:
         st.session_state["circuit_breaker_active"] = False
 
-def render_crisis_playbook_ui(net_equity: float = 55945.32):
+def render_crisis_playbook_ui(net_equity: float | None = None):
     initialize_crisis_state()
 
     st.markdown("""
@@ -69,9 +67,9 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
         else:
             st.markdown("""
             <div class="crisis-card-green">
-                <h3 style="color:#00E676; margin:0 0 6px 0;">🟢 STATUS PASARAN: OPERASI NORMAL & TERKAWAL</h3>
+                <h3 style="color:#00E676; margin:0 0 6px 0;">Kawalan manual tidak diaktifkan</h3>
                 <p style="color:#D1FAE5; font-size:0.9rem; margin:0;">
-                    Pemutus litar berada dalam mod sedia (*standby*). Eksekusi belian mengikut Meja Keputusan Harian dibenarkan sekiranya melepasi saringan AI Mentor.
+                    Kawalan ini tidak memantau pasaran dan status tidak bermaksud keadaan pasaran normal.
                 </p>
             </div>
             """, unsafe_allow_html=True)
@@ -79,12 +77,12 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
     with col_cb2:
         st.markdown("<br>", unsafe_allow_html=True)
         if not st.session_state["circuit_breaker_active"]:
-            if st.button("🚨 CETUSKAN PEMUTUS LITAR", width="stretch"):
+            if st.button("Aktifkan jeda manual", width="stretch"):
                 st.session_state["circuit_breaker_active"] = True
                 play_audio_trigger("risk_warning")
                 st.rerun()
         else:
-            if st.button("🟢 NYAHAKTIFKAN / RESET NORMAL", width="stretch"):
+            if st.button("Matikan jeda manual", width="stretch"):
                 st.session_state["circuit_breaker_active"] = False
                 play_audio_trigger("entry_success")
                 st.rerun()
@@ -105,29 +103,33 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
 
         c_h1, c_h2 = st.columns(2)
         with c_h1:
-            port_val = st.number_input("Nilai Ekuiti Portfolio Dilindungi (MYR):", value=float(net_equity), step=1000.0)
+            port_val = st.number_input(
+                "Nilai portfolio untuk senario ini (input/sumber, RM):",
+                min_value=0.0,
+                value=float(net_equity or 0.0),
+                step=1000.0,
+            )
             crash_scenario = st.select_slider("Senario Kejatuhan Indeks Pasaran (%):", options=[-5, -10, -15, -20, -30], value=-10)
-            hedge_pct = st.slider("Sasaran Perlindungan Lindung Nilai (%):", 20, 100, 50, step=10)
+            hedge_pct = st.slider("Sasaran perlindungan untuk ilustrasi (%):", 20, 100, 50, step=10)
 
         with c_h2:
             potential_loss = port_val * abs(crash_scenario / 100.0)
             hedged_coverage = potential_loss * (hedge_pct / 100.0)
-            gold_needed = hedged_coverage * 0.60
-            cash_needed = hedged_coverage * 0.40
-
-            st.markdown(f"""
-            <div style="background:#161D2B; border:1px solid #2B384E; border-radius:12px; padding:18px;">
-                <h4 style="color:#FFBB28; margin-top:0;">📊 Analisis Impak & Penampan Krisis:</h4>
-                <p><b>Potensi Penarikan Modal ({crash_scenario}%):</b> <span style="color:#FF5252; font-weight:700;">-RM {potential_loss:,.2f}</span></p>
-                <p><b>Nilai Perlindungan Sasaran ({hedge_pct}%):</b> <span style="color:#00E676; font-weight:700;">RM {hedged_coverage:,.2f}</span></p>
-                <hr style="border-color:#2B384E;">
-                <h5 style="color:#29B6F6; margin-bottom:6px;">Cadangan Struktur Lindung Nilai Institusi:</h5>
-                <ul>
-                    <li><b>Emas Fizikal / ETF GLD (60%):</b> Peruntukkan <b>RM {gold_needed:,.2f}</b></li>
-                    <li><b>Tunai Bersih / Pasaran Wang (40%):</b> Kunci rizab tunai <b>RM {cash_needed:,.2f}</b></li>
-                </ul>
-            </div>
-            """, unsafe_allow_html=True)
+            if port_val <= 0:
+                st.info("Masukkan nilai portfolio yang disahkan; tiada nilai lalai digunakan.")
+            else:
+                st.metric(
+                    f"Anggaran perubahan pada senario {crash_scenario}%",
+                    f"-RM {potential_loss:,.2f}",
+                )
+                st.metric(
+                    f"Sasaran perlindungan ilustrasi ({hedge_pct}%)",
+                    f"RM {hedged_coverage:,.2f}",
+                )
+                st.caption(
+                    "Pengiraan aritmetik berdasarkan andaian input; ia bukan ramalan "
+                    "pasaran atau cadangan lindung nilai."
+                )
 
     with sub_sop:
         st.subheader("📖 Manual Operasi Harian 15 Minit Pelabur Haddy Pro")
@@ -146,7 +148,7 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
         <div class="sop-step">
             <h4 style="color:#29B6F6; margin:0 0 4px 0;">☀️ 2. Sesi Tengah Hari (12:35 PM - 12:45 PM MYT) • Rehat Bursa</h4>
             <ul>
-                <li>Semak kedudukan pegangan aktif tempatan (kaunter <b>GFM Services</b>).</li>
+                <li>Semak pegangan aktif dan masa kemas kini sumber; jangan anggap harga tanpa cap masa sebagai sebut harga semasa.</li>
                 <li>Semak Tab <b>🛡️ Trailing Stop Sentinel</b>: Pastikan tiada saham yang menyentuh garisan amaran pemotongan modal.</li>
                 <li>Sifar aktiviti dagangan baharu waktu rehat tengah hari (elakkan terperangkap volatiliti rendah).</li>
             </ul>
@@ -155,8 +157,8 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
         <div class="sop-step">
             <h4 style="color:#FFBB28; margin:0 0 4px 0;">🌆 3. Sesi Malam (08:30 PM - 08:45 PM MYT) • Pra-Wall Street US</h4>
             <ul>
-                <li>Buka Tab <b>📡 Radar Makro & Multimedia</b>: Semak sebut harga Minyak Brent ($115/bbl) dan sentimen mesyuarat FOMC Fed.</li>
-                <li>Semak Tab <b>🎯 Meja Keputusan US</b>: Teliti calon entri AI (NVDA, MSFT, META).</li>
+                <li>Buka tab radar makro dan semak sumber serta cap masa; jika tiada data, jangan anggap ia sebut harga semasa.</li>
+                <li>Semak kaunter dalam senarai keputusan dan sahkan maklumat dengan sumber pasaran sebelum membuat keputusan.</li>
                 <li>Gunakan Tab <b>🧮 Kalkulator 3M</b> untuk mengunci saiz unit pesanan Moomoo sebelum loceng New York berbunyi jam 9:30 PM.</li>
             </ul>
         </div>
@@ -164,7 +166,7 @@ def render_crisis_playbook_ui(net_equity: float = 55945.32):
         <div class="sop-step">
             <h4 style="color:#E040FB; margin:0 0 4px 0;">🌙 4. Sesi Malam Lewat (11:30 PM - 11:40 PM MYT) • Pasca-Dagangan & Audit Diri</h4>
             <ul>
-                <li>Semak kedudukan posisi aktif global (kaunter <b>UMC</b>): Kunci <i>Trailing Stop</i> jika untung melepasi sasaran pertama.</li>
+                <li>Semak pegangan global yang benar-benar wujud dalam snapshot dan sahkan paras harga sebelum mengubah pesanan.</li>
                 <li>Buka Tab <b>⚡ Meja Beli/Jual</b>: Rekodkan sebarang transaksi jual/beli yang telah dipadankan broker.</li>
                 <li>Baca sekilas <b>5 Sumpah Keramat DDNK</b> di Tab 18 bagi mengekalkan ketenangan minda sebelum tidur.</li>
             </ul>

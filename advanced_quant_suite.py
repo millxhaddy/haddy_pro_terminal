@@ -15,31 +15,82 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import re
+from moomoo_journal_analytics import get_realized_trade_pnls
+
+
+def _parse_market_date(value):
+    if pd.isna(value):
+        return pd.NaT
+    text = str(value).strip()
+    iso_date = bool(re.match(r"^\d{4}[-/]\d{1,2}[-/]\d{1,2}", text))
+    return pd.to_datetime(
+        value,
+        errors="coerce",
+        format="mixed",
+        dayfirst=not iso_date,
+        yearfirst=iso_date,
+        utc=True,
+    )
+
+
+def _parse_numeric_series(values: pd.Series) -> pd.Series:
+    cleaned = values.astype(str).str.replace(r"[^\d.\-]", "", regex=True)
+    return pd.to_numeric(cleaned.replace("", pd.NA), errors="coerce")
 
 # ======================================================================================
 # 1. ENJIN SIMULASI MONTE CARLO & STRESS-TEST
 # ======================================================================================
 def run_monte_carlo_simulation(
-    starting_capital: float = 42497.80,
-    win_rate: float = 0.77,
-    avg_win: float = 722.12,
-    avg_loss: float = 1187.09,
+    starting_capital: float,
+    trade_pnls: list[float] | None = None,
+    win_rate: float | None = None,
+    avg_win: float | None = None,
+    avg_loss: float | None = None,
     num_simulations: int = 1000,
-    num_trades: int = 100
+    num_trades: int = 100,
 ) -> dict:
-    np.random.seed(42)
-    # Jana simulasi matriks (num_trades x num_simulations)
-    outcomes = np.random.binomial(1, win_rate, size=(num_trades, num_simulations))
-    # Nilai keuntungan atau kerugian bagi setiap dagangan
-    pnl_matrix = np.where(outcomes == 1, avg_win, -avg_loss)
-    equity_curves = np.vstack([np.full(num_simulations, starting_capital), starting_capital + np.cumsum(pnl_matrix, axis=0)])
-    
-    # Peratusan Percentile
+    if starting_capital <= 0 or num_simulations <= 0 or num_trades <= 0:
+        raise ValueError("Modal dan bilangan simulasi/dagangan mesti positif.")
+
+    if trade_pnls:
+        empirical_pnls = np.asarray(trade_pnls, dtype=float)
+        empirical_pnls = empirical_pnls[np.isfinite(empirical_pnls)]
+    elif (
+        win_rate is not None
+        and avg_win is not None
+        and avg_loss is not None
+        and 0 <= win_rate <= 1
+        and avg_win >= 0
+        and avg_loss >= 0
+    ):
+        rng = np.random.default_rng(42)
+        outcomes = rng.binomial(1, win_rate, size=(num_trades, num_simulations))
+        pnl_matrix = np.where(outcomes == 1, avg_win, -avg_loss)
+        empirical_pnls = None
+    else:
+        raise ValueError("Bekalkan P&L jurnal atau statistik simulasi yang sah.")
+
+    if empirical_pnls is not None:
+        if not len(empirical_pnls):
+            raise ValueError("Jurnal tidak mempunyai nilai P&L terhingga untuk simulasi.")
+        rng = np.random.default_rng(42)
+        pnl_matrix = rng.choice(
+            empirical_pnls,
+            size=(num_trades, num_simulations),
+            replace=True,
+        )
+
+    equity_curves = np.vstack(
+        [
+            np.full(num_simulations, starting_capital),
+            starting_capital + np.cumsum(pnl_matrix, axis=0),
+        ]
+    )
+
     p95 = np.percentile(equity_curves, 95, axis=1)
     p50 = np.percentile(equity_curves, 50, axis=1)
     p05 = np.percentile(equity_curves, 5, axis=1)
-    
-    # Pengiraan Probability of Ruin (baki < 50% modal permulaan)
     ruin_threshold = starting_capital * 0.50
     min_equities = np.min(equity_curves, axis=0)
     ruin_count = np.sum(min_equities < ruin_threshold)
@@ -57,9 +108,16 @@ def run_monte_carlo_simulation(
         "ruin_prob": ruin_prob
     }
 
-def render_monte_carlo_ui(starting_capital: float = 42497.80):
-    st.subheader("🎲 Enjin Simulasi Monte Carlo (1,000 Trajektori Masa Hadapan)")
-    st.caption("Menilai kebarangkalian risiko kejatuhan modal (Sequence Risk) berasaskan statistik 113 dagangan sebenar.")
+def render_monte_carlo_ui(starting_capital: float, vault_data: dict | None = None):
+    st.subheader("🎲 Simulasi Bootstrap P&L Jurnal")
+    trade_pnls = get_realized_trade_pnls(vault_data)
+    if not trade_pnls:
+        st.info("Simulasi belum tersedia: jurnal sumber tiada P&L realisasi yang sah.")
+        return
+    st.caption(
+        f"Simulasi mengambil sampel semula {len(trade_pnls)} P&L realisasi daripada jurnal. "
+        "Ia bukan ramalan dan tidak menjamin hasil masa depan."
+    )
 
     c1, c2, c3 = st.columns(3)
     with c1:
@@ -71,9 +129,7 @@ def render_monte_carlo_ui(starting_capital: float = 42497.80):
 
     mc = run_monte_carlo_simulation(
         starting_capital=sim_cap,
-        win_rate=0.77,
-        avg_win=722.12,
-        avg_loss=1187.09,
+        trade_pnls=trade_pnls,
         num_simulations=sim_runs,
         num_trades=sim_trades
     )
@@ -87,7 +143,7 @@ def render_monte_carlo_ui(starting_capital: float = 42497.80):
     with m3:
         st.metric("Senario Terburuk (5th %)", f"RM {mc['final_p05']:,.2f}", "-Rintangan Maksimum", delta_color="inverse")
     with m4:
-        st.metric("Probability of Ruin (Drawdown > 50%)", f"{mc['ruin_prob']:.2f}%", "Tahap Keselamatan Tinggi", delta_color="normal")
+        st.metric("Anggaran baki < 50% modal", f"{mc['ruin_prob']:.2f}%")
 
     # Plot Carta Kipas Kebarangkalian (Probability Cone)
     fig_mc = go.Figure()
@@ -130,35 +186,63 @@ def render_monte_carlo_ui(starting_capital: float = 42497.80):
 # ======================================================================================
 # 2. ENJIN MATRIKS KORELASI & PENGESANAN RISIKO BERTINDIH
 # ======================================================================================
-def render_correlation_matrix_ui():
+def render_correlation_matrix_ui(vault_data: dict | None = None):
     st.subheader("⚡ Matriks Korelasi Saham & Pendedahan Risiko Kluster")
-    st.caption("Mengesan kebergantungan aset silang untuk mengelak risiko kejatuhan portfolio serentak.")
+    source = (vault_data or {}).get("cache_ohlcv")
+    if not isinstance(source, pd.DataFrame) or source.empty:
+        source = (vault_data or {}).get("71_Cache OHLCV")
+    if not isinstance(source, pd.DataFrame) or source.empty:
+        st.info("Matriks tidak dipaparkan: tiada siri harga OHLCV bersumber tersedia.")
+        return
 
-    assets = ["TENAGA", "GAMUDA", "YTLPOWR", "SUNCON", "UMC", "NVDA", "MSFT", "AMZN", "BRENT_OIL", "GOLD"]
-    
-    # Matriks Korelasi Terkalibrasi (Bursa, Wall Street, Komoditi)
-    corr_values = [
-        [1.00, 0.42, 0.74, 0.58, 0.31, 0.45, 0.38, 0.32, 0.15, -0.05],
-        [0.42, 1.00, 0.48, 0.82, 0.28, 0.35, 0.30, 0.28, 0.22, 0.02],
-        [0.74, 0.48, 1.00, 0.65, 0.38, 0.52, 0.42, 0.36, 0.18, -0.02],
-        [0.58, 0.82, 0.65, 1.00, 0.30, 0.40, 0.34, 0.30, 0.20, 0.01],
-        [0.31, 0.28, 0.38, 0.30, 1.00, 0.68, 0.55, 0.48, 0.05, 0.10],
-        [0.45, 0.35, 0.52, 0.40, 0.68, 1.00, 0.78, 0.72, 0.08, 0.14],
-        [0.38, 0.30, 0.42, 0.34, 0.55, 0.78, 1.00, 0.81, 0.02, 0.12],
-        [0.32, 0.28, 0.36, 0.30, 0.48, 0.72, 0.81, 1.00, 0.04, 0.08],
-        [0.15, 0.22, 0.18, 0.20, 0.05, 0.08, 0.02, 0.04, 1.00, 0.38],
-        [-0.05, 0.02, -0.02, 0.01, 0.10, 0.14, 0.12, 0.08, 0.38, 1.00]
-    ]
+    ticker_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("ticker", "symbol", "simbol"))),
+        None,
+    )
+    date_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("date", "tarikh", "masa"))),
+        None,
+    )
+    close_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("close", "tutup", "harga penutup"))),
+        None,
+    )
+    if ticker_col is None or date_col is None or close_col is None:
+        st.info("Matriks tidak dipaparkan: lajur ticker, tarikh dan harga tutup tiada dalam OHLCV.")
+        return
 
-    df_corr = pd.DataFrame(corr_values, index=assets, columns=assets)
+    prices = source[[ticker_col, date_col, close_col]].copy()
+    prices["_date"] = prices[date_col].map(_parse_market_date)
+    prices["_close"] = _parse_numeric_series(prices[close_col])
+    prices["_ticker"] = prices[ticker_col].astype(str).str.strip()
+    prices = prices.dropna(subset=["_date", "_close"])
+    prices = prices[(prices["_close"] > 0) & prices["_ticker"].ne("")]
+    price_matrix = prices.pivot_table(
+        index="_date",
+        columns="_ticker",
+        values="_close",
+        aggfunc="last",
+    ).sort_index()
+    returns = price_matrix.pct_change(fill_method=None)
+    eligible_assets = returns.columns[returns.count() >= 20]
+    returns = returns[eligible_assets]
+    if len(eligible_assets) < 2:
+        st.info("Matriks belum tersedia: sekurang-kurangnya dua ticker dengan 20 pulangan harga diperlukan.")
+        return
+    df_corr = returns.corr(min_periods=20)
+    df_corr = df_corr.dropna(axis=0, how="all").dropna(axis=1, how="all")
+    if df_corr.shape[0] < 2:
+        st.info("Matriks belum tersedia: sejarah harga bertindih tidak mencukupi.")
+        return
 
+    st.caption("Korelasi Pearson dikira daripada pulangan harga penutup yang tersedia; bukan jaminan hubungan masa depan.")
     fig_corr = px.imshow(
         df_corr,
         text_auto=".2f",
         aspect="auto",
         color_continuous_scale="RdBu_r",
         range_color=[-1.0, 1.0],
-        title="Peta Haba Korelasi Aset (Merah = Korelasi Tinggi > 0.70 | Biru = Diversifikasi Cemerlang)"
+        title="Korelasi pulangan harga daripada cache OHLCV",
     )
     fig_corr.update_layout(
         template="plotly_dark", paper_bgcolor="#141824", plot_bgcolor="#141824",
@@ -166,71 +250,106 @@ def render_correlation_matrix_ui():
     )
     st.plotly_chart(fig_corr, width="stretch")
 
-    st.warning("""
-    ⚠️ **AMARAN KLUSTER KORELASI TINGGI TERCETUS:**  
-    - **Kluster AI Infrastructure Bursa (TENAGA & YTLPOWR):** Korelasi **0.74** (Tinggi). Elakkan mengambil saiz penuh serentak.  
-    - **Kluster Mega-Tech US (NVDA, MSFT, AMZN):** Korelasi **0.72 - 0.81** (Sangat Tinggi). Mengambil ketiga-tiga kaunter ini bukan diversifikasi, tetapi melipatgandakan risiko sektor yang sama!
-    """)
-
 
 # ======================================================================================
 # 3. RADAR WYCKOFF & PENGIMBAS ANOMALI VOLUM (SMART MONEY RVOL)
 # ======================================================================================
-def render_wyckoff_rvol_screener():
-    st.subheader("🎯 Radar Sinyal Wyckoff & Pengimbas Anomali Volum Jerung (RVOL)")
-    st.caption("Mengesan Volume Spread Analysis (VSA) luar biasa di mana volum melepasi 2.0x purata tanpa harga terbang.")
+def get_wyckoff_rvol_data(vault_data: dict | None = None) -> pd.DataFrame:
+    """Calculate RVOL from the latest source-backed OHLCV rows per ticker."""
+    source = (vault_data or {}).get("cache_ohlcv")
+    if not isinstance(source, pd.DataFrame) or source.empty:
+        source = (vault_data or {}).get("71_Cache OHLCV")
+    if not isinstance(source, pd.DataFrame) or source.empty:
+        return pd.DataFrame()
 
-    smart_data = [
-        {"Ticker": "KLSE:SUNCON", "Pasaran": "Bursa", "Harga": "RM 3.95", "RVOL (20D)": 3.42, "Wyckoff Phase": "Fasa D (Sign of Strength)", "VSA Signal": "🟢 Absorption Volume Puncak", "Skor Jerung": 96, "Tindakan": "Beli Zon Entri"},
-        {"Ticker": "NASDAQ:NVDA", "Pasaran": "US", "Harga": "$141.20", "RVOL (20D)": 2.85, "Wyckoff Phase": "Fasa E (Markup Runaway)", "VSA Signal": "🟢 High Volume Breakout", "Skor Jerung": 94, "Tindakan": "Follow Trend"},
-        {"Ticker": "KLSE:YTLPOWR", "Pasaran": "Bursa", "Harga": "RM 4.98", "RVOL (20D)": 2.60, "Wyckoff Phase": "Fasa C (Spring Shakeout)", "VSA Signal": "🟢 Test on Low Supply", "Skor Jerung": 92, "Tindakan": "Akumulasi"},
-        {"Ticker": "NYSE:ORCL", "Pasaran": "US", "Harga": "$172.40", "RVOL (20D)": 2.38, "Wyckoff Phase": "Fasa D (Re-accumulation)", "VSA Signal": "🟢 Institutional Buying Bar", "Skor Jerung": 90, "Tindakan": "Boleh Beli"},
-        {"Ticker": "KLSE:TENAGA", "Pasaran": "Bursa", "Harga": "RM 12.75", "RVOL (20D)": 2.15, "Wyckoff Phase": "Fasa D (Jump Across Creek)", "VSA Signal": "🟢 Effort vs Result Bullish", "Skor Jerung": 89, "Tindakan": "Kekal Posisi"},
-        {"Ticker": "NASDAQ:MRVL", "Pasaran": "US", "Harga": "$82.50", "RVOL (20D)": 2.05, "Wyckoff Phase": "Fasa C (Spring)", "VSA Signal": "🟢 Shakeout of Weak Hands", "Skor Jerung": 88, "Tindakan": "Pantau Pantulan"}
-    ]
-    df_smart = pd.DataFrame(smart_data)
-
-    st.dataframe(
-        df_smart.style.map(
-            lambda v: "color: #00E676; font-weight: bold;" if "🟢" in str(v) or "Beli" in str(v) else "",
-            subset=["VSA Signal", "Tindakan"]
-        ),
-        width="stretch",
-        hide_index=True
+    ticker_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("ticker", "symbol", "simbol"))),
+        None,
     )
+    date_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("date", "tarikh", "masa"))),
+        None,
+    )
+    volume_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("volume", "volum"))),
+        None,
+    )
+    close_col = next(
+        (c for c in source.columns if any(t in str(c).lower() for t in ("close", "tutup", "harga penutup"))),
+        None,
+    )
+    if ticker_col is None or date_col is None or volume_col is None:
+        return pd.DataFrame()
 
-    st.info("💡 **Formula Jerung:** RVOL > 2.0x menunjukkan institusi sedang memborong secara agresif. Masuk bersama jerung di lantai Wyckoff memberi ketahanan modal tertinggi.")
+    history = source[[ticker_col, date_col, volume_col] + ([close_col] if close_col else [])].copy()
+    history["_date"] = history[date_col].map(_parse_market_date)
+    history["_volume"] = _parse_numeric_series(history[volume_col])
+    history["_ticker"] = history[ticker_col].astype(str).str.strip()
+    history = history.dropna(subset=["_date", "_volume"])
+    history = history[history["_volume"] >= 0].sort_values("_date")
+    if close_col:
+        history["Harga tutup"] = _parse_numeric_series(history[close_col])
+
+    results = []
+    for ticker, rows in history.groupby("_ticker", sort=False):
+        rows = rows.tail(21).copy()
+        if len(rows) < 21:
+            continue
+        average_volume = rows["_volume"].iloc[:-1].mean()
+        if average_volume <= 0:
+            continue
+        latest = rows.iloc[-1]
+        result = {
+            "Ticker": ticker,
+            "Tarikh": latest["_date"],
+            "Volum terkini": latest["_volume"],
+            "Purata volum 20 hari": average_volume,
+            "RVOL 20 hari": latest["_volume"] / average_volume,
+        }
+        if close_col:
+            result["Harga tutup"] = latest.get("Harga tutup")
+        results.append(result)
+    if not results:
+        return pd.DataFrame()
+    return pd.DataFrame(results).sort_values("RVOL 20 hari", ascending=False)
+
+
+def render_wyckoff_rvol_screener(vault_data: dict | None = None):
+    st.subheader("🎯 Pengimbas anomali volum (RVOL)")
+    results = get_wyckoff_rvol_data(vault_data)
+    if results.empty:
+        st.info(
+            "RVOL tidak tersedia: perlukan ticker, tarikh dan sekurang-kurangnya "
+            "21 rekod volum OHLCV bersumber."
+        )
+        return
+    st.caption(
+        "RVOL membandingkan volum rekod terakhir dengan purata 20 rekod sebelumnya; "
+        "ia bukan bukti manipulasi atau isyarat beli/jual."
+    )
+    st.dataframe(
+        results,
+        width="stretch",
+        hide_index=True,
+        alt="Nisbah volum relatif dikira daripada cache OHLCV",
+    )
 
 
 # ======================================================================================
 # 4. KALENDAR EARNINGS & UNJURAN DIVIDEN
 # ======================================================================================
-def render_earnings_dividend_hub(fx_rate: float = 4.0773):
+def render_earnings_dividend_hub(
+    fx_rate: float = 4.0773,
+    vault_data: dict | None = None,
+):
     st.subheader("📅 Kalendar Laporan Pendapatan (Earnings) & Unjuran Dividen")
-    st.caption("Pusat amaran tarikh pengumuman suku tahunan dan penjejak aliran masuk dividen pasif.")
-
-    cal_col1, cal_col2 = st.columns([6, 4])
-
-    with cal_col1:
-        st.markdown("#### 🚨 Jadual Pengumuman Kewangan Terdekat (Earnings Trap Radar)")
-        earnings_data = [
-            {"Saham": "KLSE:TENAGA", "Tarikh Jangkaan": "26-11-2026", "EPS Est": "RM 0.24", "Zon Amaran": "🟢 Selamat (> 20 Hari)", "Strategi": "Pegang mengikut SOP"},
-            {"Saham": "NASDAQ:NVDA", "Tarikh Jangkaan": "18-11-2026", "EPS Est": "$0.75", "Zon Amaran": "🟡 Berjaga-jaga (< 15 Hari)", "Strategi": "Kunci sebahagian untung"},
-            {"Saham": "NYSE:UMC (Aktif)", "Tarikh Jangkaan": "30-10-2026", "EPS Est": "$0.18", "Zon Amaran": "🔴 KRITIKAL (< 48 Jam)", "Strategi": "Had SL ketat di $18.00"},
-            {"Saham": "KLSE:GAMUDA", "Tarikh Jangkaan": "15-12-2026", "EPS Est": "RM 0.12", "Zon Amaran": "🟢 Selamat (> 30 Hari)", "Strategi": "Boleh beli di sokongan"}
-        ]
-        df_earn = pd.DataFrame(earnings_data)
-        st.dataframe(df_earn, width="stretch", hide_index=True)
-
-    with cal_col2:
-        st.markdown("#### 💵 Unjuran Dividen Tahunan Portfolio (MYR)")
-        div_data = [
-            {"Saham": "KLSE:0039 (GFM)", "Unit": "56,400", "DPS": "RM 0.008", "Anggaran (MYR)": 451.20, "Hasil": "4.57%"},
-            {"Saham": "NYSE:UMC", "Unit": "581", "DPS": "$0.700", "Anggaran (MYR)": 1658.24, "Hasil": "3.75%"},
-            {"Saham": "KLSE:TENAGA", "Unit": "700", "DPS": "RM 0.450", "Anggaran (MYR)": 315.00, "Hasil": "3.53%"}
-        ]
-        df_div = pd.DataFrame(div_data)
-        total_div = 451.20 + 1658.24 + 315.00
-        
-        st.dataframe(df_div, width="stretch", hide_index=True)
-        st.metric("Jumlah Unjuran Dividen Setahun", f"RM {total_div:,.2f}", f"~RM {total_div/12:,.2f} / Bulan (Pasif)")
+    earnings = (vault_data or {}).get("cache_earnings")
+    if not isinstance(earnings, pd.DataFrame) or earnings.empty:
+        earnings = (vault_data or {}).get("72_Cache Earnings")
+    if isinstance(earnings, pd.DataFrame) and not earnings.empty:
+        st.subheader("Data earnings daripada cache Google Sheets")
+        st.dataframe(earnings, width="stretch", hide_index=True)
+    else:
+        st.info("Kalendar earnings tidak tersedia: tab 72_Cache Earnings tiada data.")
+    st.subheader("Dividen")
+    st.info("Unjuran dividen tidak dipaparkan kerana sumber jadual dividen berserta DPS/tarikh belum dikonfigurasikan.")

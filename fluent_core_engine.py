@@ -7,8 +7,13 @@ MODUL FASAA 1: ENJIN KOMPUTASI FLUENT & STATUS PASARAN DWIBENUA (MODERN CORE)
 
 import pandas as pd
 import numpy as np
-from datetime import datetime
-import pytz
+from datetime import datetime, timedelta, timezone
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+try:
+    import pytz
+except ImportError:
+    pytz = None
 
 def get_dual_market_status():
     """
@@ -21,8 +26,12 @@ def get_dual_market_status():
         now_myt = datetime.now(myt_zone)
         now_est = datetime.now(est_zone)
     else:
-        now_myt = datetime.now(timezone(timedelta(hours=8)))
-        now_est = datetime.now(timezone(timedelta(hours=-5)))
+        try:
+            now_myt = datetime.now(ZoneInfo("Asia/Kuala_Lumpur"))
+            now_est = datetime.now(ZoneInfo("America/New_York"))
+        except ZoneInfoNotFoundError:
+            now_myt = datetime.now(timezone(timedelta(hours=8)))
+            now_est = datetime.now(timezone(timedelta(hours=-5)))
     
     # 1. Status Bursa Malaysia (Isnin - Jumaat)
     weekday_my = now_myt.weekday()  # 0: Isnin, 4: Jumaat, 5-6: Hujung Minggu

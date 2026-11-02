@@ -7,7 +7,6 @@ MODUL ENJIN LIVE MOOMOO OPEND (SMART ACCOUNT ID & MULTI-CURRENCY SELECTOR)
 
 import streamlit as st
 import pandas as pd
-import numpy as np
 
 def fetch_moomoo_live_account(market="US", host="127.0.0.1", port=11111):
     try:
@@ -60,10 +59,10 @@ def fetch_moomoo_live_account(market="US", host="127.0.0.1", port=11111):
 
         # 1. Sedut Baki Menggunakan acc_id Spesifik
         funds_summary = {
-            "total_assets": 0.0,
-            "cash": 0.0,
-            "market_val": 0.0,
-            "unrealized_pl": 0.0,
+            "total_assets": None,
+            "cash": None,
+            "market_val": None,
+            "unrealized_pl": None,
             "currency": "USD" if str(market).upper() == "US" else "MYR",
             "firm": connected_firm,
             "acc_id": str(target_acc_id),
@@ -77,12 +76,13 @@ def fetch_moomoo_live_account(market="US", host="127.0.0.1", port=11111):
                 ret_acc, data_funds = trd_ctx.get_acc_details()
 
             if ret_acc == 0 and not data_funds.empty:
-                funds_summary["total_assets"] = float(data_funds.get("total_assets", [0.0])[0])
-                funds_summary["cash"] = float(data_funds.get("cash", [0.0])[0])
-                funds_summary["market_val"] = float(data_funds.get("market_val", [0.0])[0])
-                funds_summary["unrealized_pl"] = float(data_funds.get("unrealized_pl", [0.0])[0])
+                for key in ("total_assets", "cash", "market_val", "unrealized_pl"):
+                    if key in data_funds.columns and pd.notna(data_funds.iloc[0][key]):
+                        funds_summary[key] = float(data_funds.iloc[0][key])
                 if "currency" in data_funds.columns:
-                    funds_summary["currency"] = str(data_funds.get("currency", ["USD"])[0])
+                    funds_summary["currency"] = str(data_funds.iloc[0]["currency"])
+            else:
+                last_error += f" | funds_unavailable: API code {ret_acc}"
         except Exception as e:
             last_error += f" | funds_err: {e}"
 
@@ -106,12 +106,13 @@ def fetch_moomoo_live_account(market="US", host="127.0.0.1", port=11111):
                         "Untung/Rugi (Live)": float(r.get("pl_val", 0.0)),
                         "ROI (%)": float(r.get("pl_ratio", 0.0))
                     })
+            elif ret_pos != 0:
+                last_error += f" | positions_unavailable: API code {ret_pos}"
         except Exception as e:
             last_error += f" | pos_err: {e}"
 
         trd_ctx.close()
 
-        # Jika baki bernilai 0 tapi Google Sheets ada rekod, sertakan maklumat akaun
         return {
             "status": "success",
             "connected": True,
@@ -128,29 +129,26 @@ def fetch_moomoo_live_account(market="US", host="127.0.0.1", port=11111):
             "connected": False,
             "error_msg": str(e),
             "funds": {
-                "total_assets": 55945.32,
-                "cash": 18500.00,
-                "market_val": 46075.32,
-                "unrealized_pl": -1038.92,
+                "total_assets": None,
+                "cash": None,
+                "market_val": None,
+                "unrealized_pl": None,
                 "currency": "MYR",
-                "firm": "Simulasi"
+                "firm": None
             },
-            "positions": pd.DataFrame([
-                {"Ticker": "KLSE:0039", "Nama": "GFM Services Berhad", "Kuantiti": 56400, "Kos Purata": 0.175, "Harga Semasa": 0.175, "Nilai Pasaran": 9870.00, "Untung/Rugi (Live)": 0.00, "ROI (%)": 0.0},
-                {"Ticker": "NYSE:UMC", "Nama": "United Microelectronics", "Kuantiti": 581, "Kos Purata": 19.26, "Harga Semasa": 18.65, "Nilai Pasaran": 44438.58, "Untung/Rugi (Live)": -1038.92, "ROI (%)": -2.3}
-            ])
+            "positions": pd.DataFrame(),
         }
 
 def render_moomoo_live_dashboard():
     st.subheader("⚡ Hab Akaun Moomoo Universal (8702) Secara Live")
-    st.caption("Penyegerakan langsung masa nyata baki tunai, nilai pasaran saham & pegangan aktif melalui Moomoo OpenD Gateway.")
+    st.caption("Data dipaparkan hanya apabila Moomoo OpenD berjaya mengembalikan rekod; tiada snapshot contoh digunakan.")
 
     c_mkt, c_ref = st.columns([7, 3])
     with c_mkt:
         mkt_choice = st.radio("Pilih Pasaran Akaun Moomoo:", ["🇺🇸 US Wall Street (Universal USD)", "🇲🇾 Bursa Malaysia (Universal MYR)"], horizontal=True)
     with c_ref:
         st.markdown("<div style='margin-top:28px;'>", unsafe_allow_html=True)
-        force_check = st.button("🔄 SEGERAK LIVE MOOMOO (PING)", width="stretch")
+        st.button("🔄 Segerak akaun Moomoo", width="stretch")
         st.markdown("</div>", unsafe_allow_html=True)
 
     mkt_code = "US" if "US" in mkt_choice else "MY"
@@ -161,21 +159,30 @@ def render_moomoo_live_dashboard():
     if acc_data["connected"]:
         st.success(f"🟢 STATUS: TERSAMBUNG SECARA LIVE KE MOOMOO OPEND ({acc_data.get('firm_name', 'Moomoo Gateway')} • Acc ID: {acc_data.get('target_acc', 'Auto')})")
     else:
-        st.warning("🟡 STATUS: MOD SIMULASI / OPEND STANDBY")
+        st.warning("OpenD tidak bersambung. Nilai akaun tidak tersedia.")
+        if acc_data.get("error_msg"):
+            st.caption(acc_data["error_msg"])
 
     funds = acc_data["funds"]
     curr = funds.get("currency", "USD" if mkt_code == "US" else "MYR")
 
     k1, k2, k3, k4 = st.columns(4)
     with k1:
-        st.metric("Total Assets (NAV)", f"{curr} {funds.get('total_assets', 0):,.2f}")
+        value = funds.get("total_assets")
+        st.metric("Total Assets (NAV)", f"{curr} {value:,.2f}" if value is not None else "Tidak tersedia")
     with k2:
-        st.metric("Tunai Tersedia (Cash)", f"{curr} {funds.get('cash', 0):,.2f}")
+        value = funds.get("cash")
+        st.metric("Tunai Tersedia (Cash)", f"{curr} {value:,.2f}" if value is not None else "Tidak tersedia")
     with k3:
-        st.metric("Nilai Pasaran Saham", f"{curr} {funds.get('market_val', 0):,.2f}")
+        value = funds.get("market_val")
+        st.metric("Nilai Pasaran Saham", f"{curr} {value:,.2f}" if value is not None else "Tidak tersedia")
     with k4:
-        pnl_val = funds.get("unrealized_pl", 0)
-        st.metric("Untung/Rugi Semasa", f"{curr} {pnl_val:,.2f}", delta=f"{pnl_val:,.2f}")
+        pnl_val = funds.get("unrealized_pl")
+        st.metric(
+            "Untung/Rugi Semasa",
+            f"{curr} {pnl_val:,.2f}" if pnl_val is not None else "Tidak tersedia",
+            delta=f"{pnl_val:,.2f}" if pnl_val is not None else None,
+        )
 
     st.markdown("---")
     st.markdown("#### 📦 Senarai Pegangan Saham Aktif Sebenar (Live Holdings):")
@@ -196,4 +203,8 @@ def render_moomoo_live_dashboard():
             hide_index=True
         )
     else:
-        st.info("Tiada saham aktif dikesan dalam pasaran ini.")
+        st.info(
+            "Tiada posisi dipulangkan oleh API."
+            if acc_data["connected"]
+            else "Senarai posisi tidak tersedia ketika OpenD terputus."
+        )
